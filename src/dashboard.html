@@ -57,6 +57,42 @@
             gap: 8px;
         }
 
+        .update-banner {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.4);
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            color: var(--vscode-foreground, #ccc);
+        }
+        .update-banner.visible { display: flex; }
+        .update-banner svg { flex-shrink: 0; color: #ffc107; }
+        .update-banner strong { color: #ffc107; }
+        .update-banner code {
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-family: monospace;
+            font-size: 11px;
+            user-select: all;
+        }
+        .update-banner-close {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: var(--vscode-foreground, #ccc);
+            cursor: pointer;
+            opacity: 0.5;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0 2px;
+        }
+        .update-banner-close:hover { opacity: 1; }
+
         .sdd-title {
             font-size: 16px;
             font-weight: 700;
@@ -1379,6 +1415,13 @@
             Delete Selected
         </button>
     </div>
+</div>
+
+<!-- ── UPDATE BANNER ── -->
+<div class="update-banner" id="update-banner">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+    <span id="update-banner-text"></span>
+    <button class="update-banner-close" onclick="document.getElementById('update-banner').classList.remove('visible')" title="Dismiss">×</button>
 </div>
 
 <!-- ── TABS ── -->
@@ -2958,6 +3001,17 @@
     }
 
     // ── Load specs ────────────────────────────────────────────────────────────
+    async function checkVersion() {
+        try {
+            const info = await apiGet('/api/version');
+            if (!info?.outdated) return;
+            const banner = document.getElementById('update-banner');
+            const text   = document.getElementById('update-banner-text');
+            text.innerHTML = `Update available: <strong>v${info.current}</strong> → <strong>v${info.latest}</strong>. Restart using: <code>${info.updateCommand}</code>`;
+            banner.classList.add('visible');
+        } catch { /* ignore */ }
+    }
+
     async function loadSpecs() {
         try {
             specs = await apiGet('/api/specs');
@@ -3351,6 +3405,7 @@
         loadSpecs();
         loadTasksViaApi();
         startPolling();
+        checkVersion();
 
         // WebSocket for real-time updates
         (function setupWebSocket() {

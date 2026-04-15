@@ -22,6 +22,50 @@ import { exec } from 'child_process';
 import { store } from '../store/sqliteStore.js';
 import type { TaskStatus, SpecStatus } from '../types/sdd.js';
 
+// ── Version check ─────────────────────────────────────────────────────────────
+
+const __pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../../package.json');
+const CURRENT_VERSION: string = JSON.parse(readFileSync(__pkgPath, 'utf-8')).version;
+const PACKAGE_NAME = '@rafaelsouza-ai/mcp-server-sdd';
+
+interface VersionInfo {
+  current: string;
+  latest: string | null;
+  outdated: boolean;
+  updateCommand: string;
+}
+
+let versionInfo: VersionInfo = {
+  current: CURRENT_VERSION,
+  latest: null,
+  outdated: false,
+  updateCommand: `npx -y ${PACKAGE_NAME}@latest`
+};
+
+function checkForUpdates(): void {
+  const url = `https://registry.npmjs.org/${PACKAGE_NAME}/latest`;
+  fetch(url, { signal: AbortSignal.timeout(8000) })
+    .then(r => r.json())
+    .then((data: any) => {
+      const latest: string = data.version;
+      const outdated = isNewerVersion(latest, CURRENT_VERSION);
+      versionInfo = { current: CURRENT_VERSION, latest, outdated, updateCommand: `npx -y ${PACKAGE_NAME}@latest` };
+      if (outdated) {
+        console.error(`[SDD] Update available: ${CURRENT_VERSION} → ${latest}`);
+      }
+    })
+    .catch(() => { /* registry unreachable — ignore */ });
+}
+
+function isNewerVersion(latest: string, current: string): boolean {
+  const parse = (v: string) => v.split('.').map(Number);
+  const [lMaj, lMin, lPat] = parse(latest);
+  const [cMaj, cMin, cPat] = parse(current);
+  if (lMaj !== cMaj) return lMaj > cMaj;
+  if (lMin !== cMin) return lMin > cMin;
+  return lPat > cPat;
+}
+
 export function openBrowser(url: string): void {
   const cmd = process.platform === 'win32'
     ? `start "" "${url}"`
@@ -374,9 +418,11 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  // ── REST — Health ─────────────────────────────────────────────────────────
+  // ── REST — Health & Version ───────────────────────────────────────────────
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  app.get('/api/version', (_req, res) => res.json(versionInfo));
 
   // ── Start ─────────────────────────────────────────────────────────────────
 
@@ -385,6 +431,9 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   const url = `http://localhost:${port}`;
   console.error(`🚀 SDD Dashboard  →  ${url}`);
   openBrowser(url);
+
+  // Check for updates in background — non-blocking
+  checkForUpdates();
 
   serverState = { httpServer, wsServer, port, clients, broadcast };
   return { port, url };
