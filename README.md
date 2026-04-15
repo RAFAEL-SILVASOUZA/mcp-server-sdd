@@ -37,7 +37,7 @@ Any tool called before `start_server` returns an error. There is no way to skip 
 ### Claude Code (recommended)
 
 ```bash
-claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd@latest
+claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd
 ```
 
 Then set the required environment variables in `.claude/settings.json`:
@@ -47,7 +47,7 @@ Then set the required environment variables in `.claude/settings.json`:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd@latest"],
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
       "env": {
         "WORKSPACE_PATH": "/path/to/your/project",
         "AUTOOPENPANEL": "true"
@@ -64,7 +64,7 @@ Then set the required environment variables in `.claude/settings.json`:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd@latest"],
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
       "env": {
         "WORKSPACE_PATH": "/path/to/your/project",
         "AUTOOPENPANEL": "true"
@@ -80,7 +80,7 @@ Then set the required environment variables in `.claude/settings.json`:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd@latest"],
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
       "env": {
         "WORKSPACE_PATH": "C:\\Users\\you\\projects\\my-app",
         "AUTOOPENPANEL": "true"
@@ -90,19 +90,17 @@ Then set the required environment variables in `.claude/settings.json`:
 }
 ```
 
-> **Tip:** Always use `@latest` in the args. Without it, npx may serve a cached older version even after a new release.
-
 ---
 
 ## Updating
 
-npx caches packages locally. If the dashboard shows an update banner or you want to force the latest version:
+npx caches packages locally. If the dashboard shows an update banner or you want to force the latest version, clear the cache and restart your MCP client:
 
 ```bash
-# Clear npx cache and reinstall
+# Clear npm/npx cache
 npm cache clean --force
 
-# Windows — delete the npx cache directory
+# Windows — delete the npx cache directory directly
 rmdir /s /q "%LocalAppData%\npm-cache\_npx"
 
 # Mac / Linux
@@ -114,7 +112,7 @@ After clearing the cache, restart your MCP client (Claude Code, Claude Desktop, 
 If you installed globally instead of via npx:
 
 ```bash
-npm install -g @rafaelsouza-ai/mcp-server-sdd@latest
+npm install -g @rafaelsouza-ai/mcp-server-sdd
 ```
 
 ---
