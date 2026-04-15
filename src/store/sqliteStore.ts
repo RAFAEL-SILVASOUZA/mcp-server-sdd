@@ -1,55 +1,112 @@
-import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import fs from 'fs';
 import { existsSync, mkdirSync } from 'fs';
+import { fileURLToPath } from 'url';
 import type { Task, TaskLog, TaskCriterion, TaskWithEmbeds, TaskStatus, Spec, SpecStatus, Plan, PlanStatus, PlanWithTasks, SpecWithHierarchy } from '../types/sdd.js';
 
+// Get the directory of this module at runtime (works in both dev and production)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+type SqlJsModule = {
+  Database: new (data?: ArrayBuffer) => { exec(sql: string): any[]; export(): Uint8Array; close(): void; prepare(sql: string): { bind(params: any[]): void; step(): boolean; get(): any[]; getColumn(index: number): any; free(): void } };
+};
+
 export class SqliteStore {
-  private db: Database.Database;
+  private db: InstanceType<SqlJsModule['Database']> | null = null;
+  private dbPath: string = '';
+  private initPromise: Promise<void> | null = null;
 
   constructor(workspacePath?: string) {
     const basePath = workspacePath || process.env.WORKSPACE_PATH || process.cwd();
-    const dbPath = path.join(basePath, 'sdd.db');
+    this.dbPath = path.join(basePath, 'sdd.db');
 
     try {
-      const dir = path.dirname(dbPath);
+      const dir = path.dirname(this.dbPath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     } catch {}
 
-    this.db = new Database(dbPath);
-    this.db.pragma('foreign_keys = ON');
-    this.migrate();
-    this.initTables();
+    // Initialize sql.js asynchronously
+    this.initPromise = (async () => {
+      const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);
+      const SQLModule = await initSqlJsFunc({
+        locateFile: (file: string) => {
+          // Resolve WASM file relative to this module's location
+          // Works both in development and when installed globally
+          return path.join(__dirname, '..', 'sql-wasm.wasm');
+        }
+      }) as SqlJsModule;
+      this.db = new SQLModule.Database();
+
+      this.initTables();
+      this.migrate();
+
+      // Load existing data from file if it exists
+      if (fs.existsSync(this.dbPath)) {
+        const fileBuffer = fs.readFileSync(this.dbPath);
+        const existingDb = new SQLModule.Database(fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength));
+
+        // Export all tables from existing DB and import to our DB
+        const tables = ['specs', 'plans', 'tasks', 'logs', 'criteria'];
+        for (const table of tables) {
+          const rows = existingDb.exec(`SELECT * FROM ${table}`);
+          if (rows.length > 0 && rows[0].values.length > 0) {
+            const columns = rows[0].columns;
+            const values = rows[0].values;
+
+            // Insert each row
+            const placeholders = columns.map(() => '?').join(',');
+            const insertStmt = `INSERT OR REPLACE INTO ${table} (${columns.join(',')}) VALUES (${placeholders})`;
+            const stmt = this.db!.prepare(insertStmt);
+
+            for (const row of values) {
+              stmt.bind(row);
+              if (!stmt.step()) break;
+              stmt.free();
+            }
+          }
+        }
+        existingDb.close();
+      }
+    })();
+  }
+
+  // Wait for initialization to complete
+  private async ensureReady(): Promise<void> {
+    if (this.db !== null) return;
+    await this.initPromise!;
   }
 
   // ── Migrations ───────────────────────────────────────────────────────────────
   private migrate(): void {
     // v1 → v2: tasks table without task_number — drop and recreate
-    const hasTaskNumber = (this.db.prepare(
+    const hasTaskNumberResult = this.db!.exec(
       `SELECT COUNT(*) as c FROM pragma_table_info('tasks') WHERE name='task_number'`
-    ).get() as any)?.c ?? 0;
+    );
+    const hasTaskNumber = (hasTaskNumberResult[0]?.values?.[0]?.[0] ?? 0) as number;
 
     if (hasTaskNumber === 0) {
-      this.db.exec('DROP TABLE IF EXISTS criteria');
-      this.db.exec('DROP TABLE IF EXISTS logs');
-      this.db.exec('DROP TABLE IF EXISTS tasks');
+      this.db!.exec('DROP TABLE IF EXISTS criteria');
+      this.db!.exec('DROP TABLE IF EXISTS logs');
+      this.db!.exec('DROP TABLE IF EXISTS tasks');
     }
 
     // v2 → v3: add plan_number column to tasks (non-destructive)
-    const hasPlanNumber = (this.db.prepare(
+    const hasPlanNumberResult = this.db!.exec(
       `SELECT COUNT(*) as c FROM pragma_table_info('tasks') WHERE name='plan_number'`
-    ).get() as any)?.c ?? 0;
+    );
+    const hasPlanNumber = (hasPlanNumberResult[0]?.values?.[0]?.[0] ?? 0) as number;
 
     if (hasTaskNumber > 0 && hasPlanNumber === 0) {
       // tasks table exists but lacks plan_number — add it without FK constraint
-      // (SQLite ALTER TABLE ADD COLUMN with FK on non-empty tables is unreliable)
-      this.db.exec(`ALTER TABLE tasks ADD COLUMN plan_number INTEGER`);
+      this.db!.exec(`ALTER TABLE tasks ADD COLUMN plan_number INTEGER`);
     }
   }
 
   private initTables(): void {
     // ── Specs (PAI) ────────────────────────────────────────────────────────────
-    this.db.exec(`
+    this.db!.exec(`
       CREATE TABLE IF NOT EXISTS specs (
         spec_number      INTEGER PRIMARY KEY AUTOINCREMENT,
         id               TEXT    UNIQUE NOT NULL,
@@ -64,7 +121,7 @@ export class SqliteStore {
     `);
 
     // ── Plans (FILHA de spec, PAI de tasks) ────────────────────────────────────
-    this.db.exec(`
+    this.db!.exec(`
       CREATE TABLE IF NOT EXISTS plans (
         plan_number      INTEGER PRIMARY KEY AUTOINCREMENT,
         id               TEXT    UNIQUE NOT NULL,
@@ -79,7 +136,7 @@ export class SqliteStore {
     `);
 
     // ── Tasks (FILHA de plan) ─────────────────────────────────────────────────
-    this.db.exec(`
+    this.db!.exec(`
       CREATE TABLE IF NOT EXISTS tasks (
         task_number       INTEGER PRIMARY KEY AUTOINCREMENT,
         id                TEXT    UNIQUE NOT NULL,
@@ -100,7 +157,7 @@ export class SqliteStore {
       )
     `);
 
-    this.db.exec(`
+    this.db!.exec(`
       CREATE TABLE IF NOT EXISTS logs (
         id          TEXT    PRIMARY KEY,
         task_number INTEGER NOT NULL REFERENCES tasks(task_number) ON DELETE CASCADE,
@@ -110,7 +167,7 @@ export class SqliteStore {
       )
     `);
 
-    this.db.exec(`
+    this.db!.exec(`
       CREATE TABLE IF NOT EXISTS criteria (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         task_number INTEGER NOT NULL REFERENCES tasks(task_number) ON DELETE CASCADE,
@@ -121,11 +178,11 @@ export class SqliteStore {
       )
     `);
 
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_specs_status  ON specs(status)`);
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_plans_spec    ON plans(spec_number)`);
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_plan    ON tasks(plan_number)`);
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_logs_tn       ON logs(task_number)`);
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_criteria_tn   ON criteria(task_number)`);
+    this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_specs_status  ON specs(status)`);
+    this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_plans_spec    ON plans(spec_number)`);
+    this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_plan    ON tasks(plan_number)`);
+    this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_logs_tn       ON logs(task_number)`);
+    this.db!.exec(`CREATE INDEX IF NOT EXISTS idx_criteria_tn   ON criteria(task_number)`);
   }
 
   // ── Mapping helpers ──────────────────────────────────────────────────────────
@@ -133,81 +190,132 @@ export class SqliteStore {
   private now(): string { return new Date().toISOString(); }
 
   private rowToSpec(row: any): Spec {
+    const cols = ['spec_number', 'id', 'title', 'description', 'status', 'priority', 'estimated_hours', 'created_at', 'updated_at'];
+    const values: any = {};
+    for (let i = 0; i < cols.length; i++) {
+      values[cols[i]] = row[i] ?? null;
+    }
     return {
-      spec_number:     row.spec_number,
-      id:              row.id,
-      title:           row.title,
-      description:     row.description ?? undefined,
-      status:          row.status as SpecStatus,
-      priority:        row.priority ?? 1,
-      estimated_hours: row.estimated_hours ?? undefined,
-      created_at:      row.created_at,
-      updated_at:      row.updated_at,
+      spec_number:     values.spec_number,
+      id:              values.id,
+      title:           values.title,
+      description:     values.description ?? undefined,
+      status:          values.status as SpecStatus,
+      priority:        values.priority ?? 1,
+      estimated_hours: values.estimated_hours ?? undefined,
+      created_at:      values.created_at,
+      updated_at:      values.updated_at,
     };
   }
 
   private rowToPlan(row: any): Plan {
+    const cols = ['plan_number', 'id', 'spec_number', 'title', 'description', 'sort_order', 'estimated_hours', 'created_at', 'updated_at'];
+    const values: any = {};
+    for (let i = 0; i < cols.length; i++) {
+      values[cols[i]] = row[i] ?? null;
+    }
     return {
-      plan_number:     row.plan_number,
-      id:              row.id,
-      spec_number:     row.spec_number,
-      title:           row.title,
-      description:     row.description ?? undefined,
-      sort_order:      row.sort_order ?? 0,
+      plan_number:     values.plan_number,
+      id:              values.id,
+      spec_number:     values.spec_number,
+      title:           values.title,
+      description:     values.description ?? undefined,
+      sort_order:      values.sort_order ?? 0,
       status:          'pending' as PlanStatus, // will be overwritten by computePlanStatus
-      estimated_hours: row.estimated_hours ?? undefined,
-      created_at:      row.created_at,
-      updated_at:      row.updated_at,
+      estimated_hours: values.estimated_hours ?? undefined,
+      created_at:      values.created_at,
+      updated_at:      values.updated_at,
     };
   }
 
   private rowToTask(row: any): Task {
+    const cols = ['task_number', 'id', 'plan_number', 'title', 'description', 'status', 'depends_on', 'inputs', 'expected_outputs', 'sort_order', 'spec_locked_at', 'evidence_summary', 'git_diff_snapshot', 'test_output_snapshot', 'created_at', 'updated_at'];
+    const values: any = {};
+    for (let i = 0; i < cols.length; i++) {
+      values[cols[i]] = row[i] ?? null;
+    }
     return {
-      task_number:          row.task_number,
-      id:                   row.id,
-      plan_number:          row.plan_number ?? undefined,
-      title:                row.title,
-      description:          row.description ?? undefined,
-      status:               row.status as TaskStatus,
-      depends_on:           row.depends_on ?? undefined,
-      inputs:               row.inputs ?? undefined,
-      expected_outputs:     row.expected_outputs ?? undefined,
-      sort_order:           row.sort_order ?? 0,
-      spec_locked_at:       row.spec_locked_at ?? undefined,
-      evidence_summary:     row.evidence_summary ?? undefined,
-      git_diff_snapshot:    row.git_diff_snapshot ?? undefined,
-      test_output_snapshot: row.test_output_snapshot ?? undefined,
-      created_at:           row.created_at,
-      updated_at:           row.updated_at,
+      task_number:          values.task_number,
+      id:                   values.id,
+      plan_number:          values.plan_number ?? undefined,
+      title:                values.title,
+      description:          values.description ?? undefined,
+      status:               values.status as TaskStatus,
+      depends_on:           values.depends_on ?? undefined,
+      inputs:               values.inputs ?? undefined,
+      expected_outputs:     values.expected_outputs ?? undefined,
+      sort_order:           values.sort_order ?? 0,
+      spec_locked_at:       values.spec_locked_at ?? undefined,
+      evidence_summary:     values.evidence_summary ?? undefined,
+      git_diff_snapshot:    values.git_diff_snapshot ?? undefined,
+      test_output_snapshot: values.test_output_snapshot ?? undefined,
+      created_at:           values.created_at,
+      updated_at:           values.updated_at,
     };
   }
 
   private rowToLog(row: any): TaskLog {
+    const cols = ['id', 'task_number', 'message', 'created_by', 'created_at'];
+    const values: any = {};
+    for (let i = 0; i < cols.length; i++) {
+      values[cols[i]] = row[i] ?? null;
+    }
     return {
-      id:          row.id,
-      task_number: row.task_number,
-      message:     row.message,
-      created_by:  row.created_by as 'agent' | 'user',
-      created_at:  row.created_at,
+      id:          values.id,
+      task_number: values.task_number,
+      message:     values.message,
+      created_by:  values.created_by as 'agent' | 'user',
+      created_at:  values.created_at,
     };
   }
 
   private rowToCriterion(row: any): TaskCriterion {
+    const cols = ['id', 'task_number', 'criterion', 'passed', 'note', 'created_at'];
+    const values: any = {};
+    for (let i = 0; i < cols.length; i++) {
+      values[cols[i]] = row[i] ?? null;
+    }
     return {
-      id:          row.id,
-      task_number: row.task_number,
-      criterion:   row.criterion,
-      passed:      row.passed === null || row.passed === undefined ? null : (row.passed === 1 ? 1 : 0),
-      note:        row.note ?? undefined,
-      created_at:  row.created_at,
+      id:          values.id,
+      task_number: values.task_number,
+      criterion:   values.criterion,
+      passed:      values.passed === null || values.passed === undefined ? null : (values.passed === 1 ? 1 : 0),
+      note:        values.note ?? undefined,
+      created_at:  values.created_at,
     };
+  }
+
+  // Helper to execute query and return rows
+  private execQuery(sql: string, params: any[] = []): any[][] {
+    const stmt = this.db!.prepare(sql);
+    if (params.length > 0) {
+      stmt.bind(params);
+    }
+
+    const results: any[][] = [];
+    while (stmt.step()) {
+      const row = stmt.get();
+      results.push(row);
+    }
+    stmt.free();
+    return results;
+  }
+
+  // Helper to execute a single statement with parameters
+  private execStatement(sql: string, params: any[] = []): void {
+    const stmt = this.db!.prepare(sql);
+    if (params.length > 0) {
+      stmt.bind(params);
+    }
+    stmt.step();
+    stmt.free();
   }
 
   // Resolve a string (UUID) or number (task_number) to a task_number
   private resolveTaskNumber(idOrNumber: string | number): number | undefined {
     if (typeof idOrNumber === 'number') return idOrNumber;
-    const row = this.db.prepare('SELECT task_number FROM tasks WHERE id = ?').get(idOrNumber) as any;
-    return row?.task_number;
+    const rows = this.execQuery('SELECT task_number FROM tasks WHERE id = ?', [idOrNumber]);
+    return rows.length > 0 ? rows[0][0] : undefined;
   }
 
   // ── Spec CRUD ─────────────────────────────────────────────────────────────────
@@ -215,27 +323,30 @@ export class SqliteStore {
   createSpec(title: string, description?: string, priority: number = 1, estimated_hours?: number): Spec {
     const id  = uuidv4();
     const now = this.now();
-    this.db.prepare(`
-      INSERT INTO specs (id, title, description, status, priority, estimated_hours, created_at, updated_at)
-      VALUES (?, ?, ?, 'draft', ?, ?, ?, ?)
-    `).run(id, title, description || null, priority, estimated_hours ?? null, now, now);
+    this.execStatement(
+      `INSERT INTO specs (id, title, description, status, priority, estimated_hours, created_at, updated_at)
+       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?)`,
+      [id, title, description || null, priority, estimated_hours ?? null, now, now]
+    );
     return this.getSpecByUUID(id)!;
   }
 
   getSpecByUUID(id: string): Spec | undefined {
-    const row = this.db.prepare('SELECT * FROM specs WHERE id = ?').get(id) as any;
-    return row ? this.rowToSpec(row) : undefined;
+    const rows = this.execQuery('SELECT * FROM specs WHERE id = ?', [id]);
+    return rows.length > 0 ? this.rowToSpec(rows[0]) : undefined;
   }
 
   getSpecByNumber(n: number): Spec | undefined {
-    const row = this.db.prepare('SELECT * FROM specs WHERE spec_number = ?').get(n) as any;
-    return row ? this.rowToSpec(row) : undefined;
+    const rows = this.execQuery('SELECT * FROM specs WHERE spec_number = ?', [n]);
+    return rows.length > 0 ? this.rowToSpec(rows[0]) : undefined;
   }
 
   listSpecs(status?: SpecStatus): Spec[] {
-    const rows = status
-      ? this.db.prepare('SELECT * FROM specs WHERE status = ? ORDER BY priority DESC, spec_number ASC').all(status) as any[]
-      : this.db.prepare('SELECT * FROM specs ORDER BY priority DESC, spec_number ASC').all() as any[];
+    if (status) {
+      const rows = this.execQuery('SELECT * FROM specs WHERE status = ? ORDER BY priority DESC, spec_number ASC', [status]);
+      return rows.map(r => this.rowToSpec(r));
+    }
+    const rows = this.execQuery('SELECT * FROM specs ORDER BY priority DESC, spec_number ASC');
     return rows.map(r => this.rowToSpec(r));
   }
 
@@ -247,7 +358,8 @@ export class SqliteStore {
     if (typeof idOrNumber === 'number') {
       specNumber = idOrNumber;
     } else {
-      specNumber = (this.db.prepare('SELECT spec_number FROM specs WHERE id = ?').get(idOrNumber) as any)?.spec_number;
+      const rows = this.execQuery('SELECT spec_number FROM specs WHERE id = ?', [idOrNumber]);
+      specNumber = rows.length > 0 ? rows[0][0] : undefined;
     }
     if (!specNumber) return null;
 
@@ -265,7 +377,7 @@ export class SqliteStore {
 
     add('updated_at', this.now());
     values.push(specNumber);
-    this.db.prepare(`UPDATE specs SET ${fields.join(', ')} WHERE spec_number = ?`).run(...values);
+    this.execStatement(`UPDATE specs SET ${fields.join(', ')} WHERE spec_number = ?`, values);
     return this.getSpecByNumber(specNumber)!;
   }
 
@@ -274,26 +386,23 @@ export class SqliteStore {
     if (typeof idOrNumber === 'number') {
       specNumber = idOrNumber;
     } else {
-      specNumber = (this.db.prepare('SELECT spec_number FROM specs WHERE id = ?').get(idOrNumber) as any)?.spec_number;
+      const rows = this.execQuery('SELECT spec_number FROM specs WHERE id = ?', [idOrNumber]);
+      specNumber = rows.length > 0 ? rows[0][0] : undefined;
     }
     if (!specNumber) return false;
 
     // Application-level cascade: delete all tasks (+ their logs/criteria via FK CASCADE)
     // that belong to plans of this spec, before deleting the spec itself.
-    // (tasks.plan_number is SET NULL when plans are deleted, so we must delete tasks first)
-    this.db.transaction(() => {
-      const planNumbers = (this.db.prepare(
-        'SELECT plan_number FROM plans WHERE spec_number = ?'
-      ).all(specNumber!) as any[]).map((r: any) => r.plan_number);
+    const planRows = this.execQuery('SELECT plan_number FROM plans WHERE spec_number = ?', [specNumber]);
+    const planNumbers = planRows.map((r: any) => r[0]);
 
-      for (const pn of planNumbers) {
-        // Delete tasks linked to this plan (logs + criteria cascade via FK)
-        this.db.prepare('DELETE FROM tasks WHERE plan_number = ?').run(pn);
-      }
+    for (const pn of planNumbers) {
+      // Delete tasks linked to this plan (logs + criteria cascade via FK)
+      this.execStatement('DELETE FROM tasks WHERE plan_number = ?', [pn]);
+    }
 
-      // Now delete the spec — plans cascade via FK
-      this.db.prepare('DELETE FROM specs WHERE spec_number = ?').run(specNumber!);
-    })();
+    // Now delete the spec — plans cascade via FK
+    this.execStatement('DELETE FROM specs WHERE spec_number = ?', [specNumber]);
 
     return true;
   }
@@ -327,38 +436,41 @@ export class SqliteStore {
     const id  = uuidv4();
     const now = this.now();
 
-    const maxOrder = sort_order ?? ((this.db.prepare(
-      'SELECT MAX(sort_order) as m FROM plans WHERE spec_number = ?'
-    ).get(spec_number) as any)?.m ?? -1) + 1;
+    const maxOrderResult = this.execQuery(
+      'SELECT MAX(sort_order) as m FROM plans WHERE spec_number = ?', [spec_number]
+    );
+    const maxOrder = sort_order ?? ((maxOrderResult[0]?.[0] ?? -1) + 1);
 
-    this.db.prepare(`
-      INSERT INTO plans (id, spec_number, title, description, sort_order, estimated_hours, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, spec_number, title, description || null, maxOrder, estimated_hours ?? null, now, now);
+    this.execStatement(
+      `INSERT INTO plans (id, spec_number, title, description, sort_order, estimated_hours, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, spec_number, title, description || null, maxOrder, estimated_hours ?? null, now, now]
+    );
 
     return this.getPlanByUUID(id)!;
   }
 
   getPlanByUUID(id: string): Plan | undefined {
-    const row = this.db.prepare('SELECT * FROM plans WHERE id = ?').get(id) as any;
-    if (!row) return undefined;
-    const plan = this.rowToPlan(row);
+    const rows = this.execQuery('SELECT * FROM plans WHERE id = ?', [id]);
+    if (rows.length === 0) return undefined;
+    const plan = this.rowToPlan(rows[0]);
     plan.status = this.computePlanStatus(plan.plan_number);
     return plan;
   }
 
   getPlanByNumber(n: number): Plan | undefined {
-    const row = this.db.prepare('SELECT * FROM plans WHERE plan_number = ?').get(n) as any;
-    if (!row) return undefined;
-    const plan = this.rowToPlan(row);
+    const rows = this.execQuery('SELECT * FROM plans WHERE plan_number = ?', [n]);
+    if (rows.length === 0) return undefined;
+    const plan = this.rowToPlan(rows[0]);
     plan.status = this.computePlanStatus(plan.plan_number);
     return plan;
   }
 
   listPlansBySpec(spec_number: number): Plan[] {
-    const rows = this.db.prepare(
-      'SELECT * FROM plans WHERE spec_number = ? ORDER BY sort_order ASC, plan_number ASC'
-    ).all(spec_number) as any[];
+    const rows = this.execQuery(
+      'SELECT * FROM plans WHERE spec_number = ? ORDER BY sort_order ASC, plan_number ASC',
+      [spec_number]
+    );
     return rows.map(r => {
       const plan = this.rowToPlan(r);
       plan.status = this.computePlanStatus(plan.plan_number);
@@ -374,7 +486,8 @@ export class SqliteStore {
     if (typeof idOrNumber === 'number') {
       planNumber = idOrNumber;
     } else {
-      planNumber = (this.db.prepare('SELECT plan_number FROM plans WHERE id = ?').get(idOrNumber) as any)?.plan_number;
+      const rows = this.execQuery('SELECT plan_number FROM plans WHERE id = ?', [idOrNumber]);
+      planNumber = rows.length > 0 ? rows[0][0] : undefined;
     }
     if (!planNumber) return null;
 
@@ -391,7 +504,7 @@ export class SqliteStore {
 
     add('updated_at', this.now());
     values.push(planNumber);
-    this.db.prepare(`UPDATE plans SET ${fields.join(', ')} WHERE plan_number = ?`).run(...values);
+    this.execStatement(`UPDATE plans SET ${fields.join(', ')} WHERE plan_number = ?`, values);
     return this.getPlanByNumber(planNumber)!;
   }
 
@@ -400,10 +513,12 @@ export class SqliteStore {
     if (typeof idOrNumber === 'number') {
       planNumber = idOrNumber;
     } else {
-      planNumber = (this.db.prepare('SELECT plan_number FROM plans WHERE id = ?').get(idOrNumber) as any)?.plan_number;
+      const rows = this.execQuery('SELECT plan_number FROM plans WHERE id = ?', [idOrNumber]);
+      planNumber = rows.length > 0 ? rows[0][0] : undefined;
     }
     if (!planNumber) return false;
-    return (this.db.prepare('DELETE FROM plans WHERE plan_number = ?').run(planNumber)).changes > 0;
+    this.execStatement('DELETE FROM plans WHERE plan_number = ?', [planNumber]);
+    return true;
   }
 
   getSpecWithHierarchy(spec_number: number): SpecWithHierarchy | undefined {
@@ -438,12 +553,14 @@ export class SqliteStore {
     const now = this.now();
 
     const dependsOnNumber = depends_on != null ? this.resolveTaskNumber(depends_on) ?? null : null;
-    const maxOrder = (this.db.prepare('SELECT MAX(sort_order) as m FROM tasks').get() as any)?.m ?? -1;
+    const maxOrderResult = this.execQuery('SELECT MAX(sort_order) as m FROM tasks');
+    const maxOrder = (maxOrderResult[0]?.[0] ?? -1);
 
-    this.db.prepare(`
-      INSERT INTO tasks (id, plan_number, title, description, status, depends_on, inputs, expected_outputs, sort_order, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, plan_number ?? null, title, description || null, status, dependsOnNumber, inputs || null, expected_outputs || null, maxOrder + 1, now, now);
+    this.execStatement(
+      `INSERT INTO tasks (id, plan_number, title, description, status, depends_on, inputs, expected_outputs, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, plan_number ?? null, title, description || null, status, dependsOnNumber, inputs || null, expected_outputs || null, maxOrder + 1, now, now]
+    );
 
     return this.getTaskByUUID(id)!;
   }
@@ -452,13 +569,13 @@ export class SqliteStore {
   readTask(id: string): Task | undefined         { return this.getTaskByUUID(id); }
 
   getTaskByUUID(id: string): Task | undefined {
-    const row = this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as any;
-    return row ? this.rowToTask(row) : undefined;
+    const rows = this.execQuery('SELECT * FROM tasks WHERE id = ?', [id]);
+    return rows.length > 0 ? this.rowToTask(rows[0]) : undefined;
   }
 
   getTaskByNumber(taskNumber: number): Task | undefined {
-    const row = this.db.prepare('SELECT * FROM tasks WHERE task_number = ?').get(taskNumber) as any;
-    return row ? this.rowToTask(row) : undefined;
+    const rows = this.execQuery('SELECT * FROM tasks WHERE task_number = ?', [taskNumber]);
+    return rows.length > 0 ? this.rowToTask(rows[0]) : undefined;
   }
 
   getTaskWithEmbeds(taskNumber: number): TaskWithEmbeds | undefined {
@@ -468,9 +585,11 @@ export class SqliteStore {
   }
 
   listTasks(status?: TaskStatus): Task[] {
-    const rows = status
-      ? this.db.prepare('SELECT * FROM tasks WHERE status = ? ORDER BY sort_order ASC, task_number ASC').all(status) as any[]
-      : this.db.prepare('SELECT * FROM tasks ORDER BY sort_order ASC, task_number ASC').all() as any[];
+    if (status) {
+      const rows = this.execQuery('SELECT * FROM tasks WHERE status = ? ORDER BY sort_order ASC, task_number ASC', [status]);
+      return rows.map(r => this.rowToTask(r));
+    }
+    const rows = this.execQuery('SELECT * FROM tasks ORDER BY sort_order ASC, task_number ASC');
     return rows.map(r => this.rowToTask(r));
   }
 
@@ -483,9 +602,10 @@ export class SqliteStore {
   }
 
   listTasksByPlan(plan_number: number): Task[] {
-    const rows = this.db.prepare(
-      'SELECT * FROM tasks WHERE plan_number = ? ORDER BY sort_order ASC, task_number ASC'
-    ).all(plan_number) as any[];
+    const rows = this.execQuery(
+      'SELECT * FROM tasks WHERE plan_number = ? ORDER BY sort_order ASC, task_number ASC',
+      [plan_number]
+    );
     return rows.map(r => this.rowToTask(r));
   }
 
@@ -534,7 +654,7 @@ export class SqliteStore {
 
     add('updated_at', this.now());
     values.push(taskNumber);
-    this.db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE task_number = ?`).run(...values);
+    this.execStatement(`UPDATE tasks SET ${fields.join(', ')} WHERE task_number = ?`, values);
 
     return this.getTaskByNumber(taskNumber)!;
   }
@@ -546,12 +666,14 @@ export class SqliteStore {
   deleteTask(idOrNumber: string | number): boolean {
     const taskNumber = this.resolveTaskNumber(idOrNumber);
     if (!taskNumber) return false;
-    return (this.db.prepare('DELETE FROM tasks WHERE task_number = ?').run(taskNumber)).changes > 0;
+    this.execStatement('DELETE FROM tasks WHERE task_number = ?', [taskNumber]);
+    return true;
   }
 
   updateSortOrder(taskNumbers: number[]): void {
-    const stmt = this.db.prepare('UPDATE tasks SET sort_order = ? WHERE task_number = ?');
-    this.db.transaction(() => { taskNumbers.forEach((tn, i) => stmt.run(i, tn)); })();
+    for (let i = 0; i < taskNumbers.length; i++) {
+      this.execStatement('UPDATE tasks SET sort_order = ? WHERE task_number = ?', [i, taskNumbers[i]]);
+    }
   }
 
   // ── Log operations ───────────────────────────────────────────────────────────
@@ -562,16 +684,20 @@ export class SqliteStore {
 
     const id  = uuidv4();
     const now = this.now();
-    this.db.prepare('INSERT INTO logs (id, task_number, message, created_by, created_at) VALUES (?, ?, ?, ?, ?)')
-           .run(id, taskNumber, message, createdBy, now);
+    this.execStatement(
+      'INSERT INTO logs (id, task_number, message, created_by, created_at) VALUES (?, ?, ?, ?, ?)',
+      [id, taskNumber, message, createdBy, now]
+    );
 
     return { id, task_number: taskNumber, message, created_by: createdBy as any, created_at: now };
   }
 
   getLogs(taskNumber?: number): TaskLog[] {
-    const rows = taskNumber
-      ? this.db.prepare('SELECT * FROM logs WHERE task_number = ? ORDER BY created_at ASC').all(taskNumber) as any[]
-      : this.db.prepare('SELECT * FROM logs ORDER BY created_at ASC').all() as any[];
+    if (taskNumber !== undefined) {
+      const rows = this.execQuery('SELECT * FROM logs WHERE task_number = ? ORDER BY created_at ASC', [taskNumber]);
+      return rows.map(r => this.rowToLog(r));
+    }
+    const rows = this.execQuery('SELECT * FROM logs ORDER BY created_at ASC');
     return rows.map(r => this.rowToLog(r));
   }
 
@@ -583,11 +709,15 @@ export class SqliteStore {
   }
 
   clearLogs(taskIdOrNumber?: string | number): number {
-    if (taskIdOrNumber === undefined)
-      return (this.db.prepare('DELETE FROM logs').run()).changes;
+    if (taskIdOrNumber === undefined) {
+      this.execStatement('DELETE FROM logs');
+      // sql.js doesn't provide changes() easily, so we return -1 to indicate all cleared
+      return -1;
+    }
     const taskNumber = this.resolveTaskNumber(taskIdOrNumber);
     if (!taskNumber) return 0;
-    return (this.db.prepare('DELETE FROM logs WHERE task_number = ?').run(taskNumber)).changes;
+    this.execStatement('DELETE FROM logs WHERE task_number = ?', [taskNumber]);
+    return -1;
   }
 
   // ── Criteria operations ──────────────────────────────────────────────────────
@@ -597,16 +727,24 @@ export class SqliteStore {
     if (!taskNumber) throw new Error('Task not found');
 
     const now    = this.now();
-    const result = this.db.prepare('INSERT INTO criteria (task_number, criterion, created_at) VALUES (?, ?, ?)')
-                          .run(taskNumber, criterion, now);
+    this.execStatement(
+      'INSERT INTO criteria (task_number, criterion, created_at) VALUES (?, ?, ?)',
+      [taskNumber, criterion, now]
+    );
 
-    return { id: result.lastInsertRowid as number, task_number: taskNumber, criterion, passed: null, created_at: now };
+    // Get the last inserted row id
+    const rows = this.execQuery('SELECT * FROM criteria WHERE task_number = ? ORDER BY id DESC LIMIT 1', [taskNumber]);
+    if (rows.length === 0) throw new Error('Failed to insert criterion');
+
+    return { id: rows[0][0], task_number: taskNumber, criterion, passed: null, created_at: now };
   }
 
   getCriteria(taskNumber?: number): TaskCriterion[] {
-    const rows = taskNumber
-      ? this.db.prepare('SELECT * FROM criteria WHERE task_number = ? ORDER BY id ASC').all(taskNumber) as any[]
-      : this.db.prepare('SELECT * FROM criteria ORDER BY id ASC').all() as any[];
+    if (taskNumber !== undefined) {
+      const rows = this.execQuery('SELECT * FROM criteria WHERE task_number = ? ORDER BY id ASC', [taskNumber]);
+      return rows.map(r => this.rowToCriterion(r));
+    }
+    const rows = this.execQuery('SELECT * FROM criteria ORDER BY id ASC');
     return rows.map(r => this.rowToCriterion(r));
   }
 
@@ -618,10 +756,12 @@ export class SqliteStore {
   }
 
   verifyCriterion(criterionId: number, passed: boolean, note?: string): TaskCriterion | null {
-    this.db.prepare('UPDATE criteria SET passed = ?, note = ? WHERE id = ?')
-           .run(passed ? 1 : 0, note || null, criterionId);
-    const row = this.db.prepare('SELECT * FROM criteria WHERE id = ?').get(criterionId) as any;
-    return row ? this.rowToCriterion(row) : null;
+    this.execStatement(
+      'UPDATE criteria SET passed = ?, note = ? WHERE id = ?',
+      [passed ? 1 : 0, note || null, criterionId]
+    );
+    const rows = this.execQuery('SELECT * FROM criteria WHERE id = ?', [criterionId]);
+    return rows.length > 0 ? this.rowToCriterion(rows[0]) : null;
   }
 
   markCriterionComplete(criterionId: string | number): TaskCriterion | null {
@@ -634,7 +774,24 @@ export class SqliteStore {
 
   // ── Utility ──────────────────────────────────────────────────────────────────
 
-  close(): void { this.db.close(); }
+  close(): void {
+    if (this.db) {
+      // Save database to file before closing
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(this.dbPath, buffer);
+      this.db.close();
+    }
+  }
+
+  save(): void {
+    if (this.db) {
+      // Save database to file
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(this.dbPath, buffer);
+    }
+  }
 }
 
 export const store = new SqliteStore();

@@ -8,7 +8,11 @@ import { sddTools } from "./tools/sddTools.js";
 import { serverTools } from "./tools/server.js";
 import { sddDocsTools } from "./tools/sddDocs.js";
 import { specTools } from "./tools/specTools.js";
-import { startDashboardServer } from "./server/index.js";
+import {
+  startDashboardServer,
+  stopDashboardServer,
+  isServerRunning
+} from "./server/index.js";
 
 type ToolRegistry = typeof serverTools & typeof sddDocsTools & typeof specTools & typeof sddTools;
 
@@ -154,6 +158,16 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("MCP SDD Server running on stdio");
+
+  // ── Shutdown handler ────────────────────────────────────────────────────────
+  // Stop dashboard when MCP server is disabled/closed
+  server.onclose = async () => {
+    if (isServerRunning()) {
+      console.error('🛑 Stopping dashboard server...');
+      stopDashboardServer();
+      console.error('✅ Dashboard server stopped');
+    }
+  };
 
   const autoOpen = process.env.AUTOOPENPANEL?.toLowerCase();
   if (autoOpen === 'true' || autoOpen === '1') {

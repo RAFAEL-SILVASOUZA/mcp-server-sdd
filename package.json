@@ -12,7 +12,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc && node scripts/add-shebang.mjs",
+    "copy:wasm": "node scripts/copy-wasm.mjs",
+    "build": "tsc && npm run copy:wasm && node scripts/add-shebang.mjs",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
@@ -49,15 +50,15 @@
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@types/express": "^5.0.6",
     "@types/ws": "^8.18.1",
-    "better-sqlite3": "11.0.0",
     "express": "^5.2.1",
+    "sql.js": "^1.14.0",
     "uuid": "^9.0.1",
     "ws": "^8.20.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.10.0",
+    "@types/sql.js": "^1.4.11",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
