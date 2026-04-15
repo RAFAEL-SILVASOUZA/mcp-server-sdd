@@ -1,5 +1,5 @@
 {
-  "name": "@rafaelssouza-ai/mcp-server-sdd",
+  "name": "@rafaelsouza-ai/mcp-server-sdd",
   "version": "1.0.1",
   "description": "MCP Server for Spec-Driven Development - Create and manage SDD test specifications with tasks, logs, and acceptance criteria",
   "main": "dist/index.js",
@@ -39,7 +39,7 @@
     "acceptance-criteria",
     "sqlite"
   ],
-  "homepage": "https://www.npmjs.com/package/@rafaelssouza-ai/mcp-server-sdd",
+  "homepage": "https://www.npmjs.com/package/@rafaelsouza-ai/mcp-server-sdd",
   "author": "Rafael Silva Souza",
   "license": "MIT",
   "dependencies": {
