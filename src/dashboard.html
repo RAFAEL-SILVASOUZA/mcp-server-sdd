@@ -1,0 +1,2385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spec-Driven Development — Task Backlog</title>
+    <style>
+        /* Dark-theme defaults for standalone browser mode.
+           VSCode webview overrides these automatically with its own theme variables. */
+        :root {
+            --vscode-foreground: #cccccc;
+            --vscode-editor-background: #1e1e1e;
+            --vscode-editor-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            --vscode-panel-border: #3c3c3c;
+            --vscode-sideBar-background: #252526;
+            --vscode-button-background: #0e639c;
+            --vscode-button-foreground: #ffffff;
+            --vscode-button-hoverBackground: #1177bb;
+            --vscode-badge-background: #4d4d4d;
+            --vscode-badge-foreground: #ffffff;
+            --vscode-toolbar-hoverBackground: rgba(255,255,255,0.07);
+            --vscode-list-activeSelectionBackground: rgba(0,120,215,0.12);
+            --vscode-input-background: #3c3c3c;
+            --vscode-input-foreground: #cccccc;
+            --vscode-input-border: #3c3c3c;
+            --vscode-dropdown-background: #3c3c3c;
+            --vscode-dropdown-foreground: #cccccc;
+            --vscode-dropdown-border: #3c3c3c;
+            --vscode-errorBackground: #5a1d1d;
+            --vscode-errorForeground: #f48771;
+            --vscode-focusBorder: #007fd4;
+            --vscode-descriptionForeground: #989898;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--vscode-editor-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif);
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--vscode-foreground);
+            background: var(--vscode-editor-background);
+            margin: 0;
+            padding: 16px 20px;
+            overflow-x: auto;
+        }
+
+        /* ── Header ── */
+        .sdd-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--vscode-panel-border, #333);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .sdd-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--vscode-foreground);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sdd-badge {
+            background: var(--vscode-badge-background, #4d4d4d);
+            color: var(--vscode-badge-foreground, #fff);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 1px 7px;
+            border-radius: 10px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .header-actions { display: flex; gap: 6px; align-items: center; }
+
+        .sdd-search {
+            background: var(--vscode-input-background, #3c3c3c);
+            color: var(--vscode-input-foreground, #cccccc);
+            border: 1px solid var(--vscode-input-border, #3c3c3c);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            width: 180px;
+            transition: border-color 0.15s, width 0.15s;
+        }
+        .sdd-search:focus {
+            border-color: var(--vscode-focusBorder, #007fd4);
+            width: 240px;
+        }
+        .sdd-search::placeholder {
+            color: var(--vscode-descriptionForeground, #989898);
+            opacity: 0.7;
+        }
+
+/* ── Live indicator ── */
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #4caf50;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ── Kanban board ── */
+        .kanban-board {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            min-height: calc(100vh - 120px);
+        }
+
+        .kanban-col {
+            flex: 1;
+            min-width: 180px;
+            background: var(--vscode-sideBar-background, rgba(255,255,255,0.03));
+            border: 1px solid var(--vscode-panel-border, #333);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .kanban-col-header {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 12px 8px 12px;
+            border-bottom: 2px solid transparent;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .col-open                 .kanban-col-header { border-color: #6c9ef8; }
+        .col-in-progress          .kanban-col-header { border-color: #f0a040; }
+        .col-pending-verification .kanban-col-header { border-color: #9c6fe4; }
+        .col-done                 .kanban-col-header { border-color: #4caf50; }
+        .col-error                .kanban-col-header { border-color: #e53935; }
+
+        .col-count {
+            margin-left: auto;
+            background: var(--vscode-badge-background, #444);
+            color: var(--vscode-badge-foreground, #fff);
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .kanban-cards {
+            padding: 8px;
+            flex: 1;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .kanban-col.drag-over-col > .kanban-cards {
+            background: var(--vscode-list-activeSelectionBackground, rgba(0,120,215,0.12));
+            border-radius: 4px;
+        }
+
+        /* ── Task card ── */
+        .task-card {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-widget-border, #3a3a3a);
+            border-radius: 5px;
+            padding: 8px 10px;
+            cursor: grab;
+            transition: box-shadow 0.1s, border-color 0.1s;
+            user-select: none;
+        }
+        .task-card:hover {
+            border-color: var(--vscode-focusBorder, #007acc);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .task-card.dragging { opacity: 0.4; cursor: grabbing; }
+        .task-card.drag-over-card { border-color: var(--vscode-focusBorder, #007acc); background: var(--vscode-list-hoverBackground); }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            margin-bottom: 3px;
+        }
+
+        .card-number {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-family: monospace;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--vscode-foreground);
+            word-break: break-word;
+            flex: 1;
+            line-height: 1.4;
+        }
+        .col-done .task-card .card-title { opacity: 0.55; text-decoration: line-through; }
+
+        .card-desc {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            margin-top: 4px;
+            word-break: break-word;
+            line-height: 1.35;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 5px;
+        }
+
+        .card-badge {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .card-badge.lock-badge { color: #f0a040; }
+        .card-badge.criteria-badge { color: var(--vscode-descriptionForeground, #888); cursor: pointer; }
+        .card-badge.criteria-badge:hover { color: var(--vscode-foreground); }
+        .card-badge.dep-badge { color: var(--vscode-descriptionForeground, #888); }
+
+        .card-dep-badge-inner {
+            font-family: monospace;
+            background: rgba(255,255,255,0.07);
+            border-radius: 3px;
+            padding: 0 4px;
+            font-size: 10px;
+        }
+
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 6px;
+        }
+
+        .card-log-count {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            cursor: pointer;
+        }
+        .card-log-count:hover { color: var(--vscode-foreground); }
+
+        .card-actions {
+            display: flex;
+            gap: 2px;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .task-card:hover .card-actions { opacity: 1; }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: var(--vscode-foreground);
+            opacity: 0.6;
+            transition: opacity 0.1s, background 0.1s;
+            display: flex;
+            align-items: center;
+        }
+        .icon-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1)); }
+        .icon-btn.delete-btn:hover { color: var(--vscode-errorForeground, #f44); }
+
+        /* ── Card inline logs ── */
+        .card-logs {
+            display: none;
+            margin-top: 8px;
+            border-top: 1px solid var(--vscode-widget-border, #3a3a3a);
+            padding-top: 7px;
+        }
+        .card-logs.open { display: block; }
+
+        .log-entry {
+            display: flex;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            margin-bottom: 5px;
+            line-height: 1.3;
+        }
+        .log-time {
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 10px;
+            opacity: 0.7;
+            white-space: nowrap;
+        }
+        .log-author {
+            flex-shrink: 0;
+            font-size: 10px;
+            padding: 0 4px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        .log-author.agent { background: rgba(108,158,248,0.18); color: #6c9ef8; }
+        .log-author.user  { background: rgba(76,175,80,0.15); color: #4caf50; }
+        .log-message { word-break: break-word; }
+
+        .logs-empty {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-style: italic;
+        }
+
+        /* ── Column empty state ── */
+        .col-empty {
+            text-align: center;
+            padding: 20px 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-size: 11px;
+            opacity: 0.5;
+        }
+
+        /* ── Modal backdrop ── */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-backdrop.open { display: flex; }
+
+        .modal {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border, #555);
+            border-radius: 6px;
+            padding: 20px;
+            width: 620px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .modal::-webkit-scrollbar { width: 4px; }
+        .modal::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #555); border-radius: 2px; }
+
+        .modal h3 { margin: 0 0 14px 0; font-size: 14px; font-weight: 600; }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            opacity: 0.85;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border, #555);
+            border-radius: 4px;
+            padding: 6px 9px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus { border-color: var(--vscode-focusBorder, #007acc); }
+        .form-group textarea { resize: vertical; min-height: 60px; }
+
+        /* Locked / read-only fields */
+        .field-locked {
+            opacity: 0.55;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .field-locked input,
+        .field-locked textarea,
+        .field-locked select {
+            background: var(--vscode-input-background) !important;
+            border-style: dashed !important;
+        }
+
+        /* ── Spec sections separator ── */
+        .spec-section-divider {
+            border: none;
+            border-top: 1px solid var(--vscode-panel-border, #444);
+            margin: 14px 0 12px 0;
+        }
+        .spec-section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            opacity: 0.5;
+            margin-bottom: 10px;
+        }
+
+        /* ── Spec lock notice ── */
+        .spec-lock-notice {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(240,160,64,0.12);
+            border: 1px solid rgba(240,160,64,0.3);
+            border-radius: 4px;
+            padding: 7px 10px;
+            font-size: 11px;
+            color: #f0a040;
+            margin-bottom: 10px;
+        }
+
+        /* ── Criteria list ── */
+        .criteria-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+
+        .criterion-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .criterion-number {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-family: monospace;
+            flex-shrink: 0;
+            width: 18px;
+            text-align: right;
+        }
+
+        .criterion-input {
+            flex: 1;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border, #555);
+            border-radius: 4px;
+            padding: 5px 8px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+        .criterion-input:focus { border-color: var(--vscode-focusBorder, #007acc); }
+        .criterion-input:read-only { opacity: 0.55; cursor: not-allowed; }
+
+        .btn-remove-criterion {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--vscode-descriptionForeground, #888);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 13px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        .btn-remove-criterion:hover { color: var(--vscode-errorForeground, #f44); background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.07)); }
+
+        .btn-add-criterion {
+            background: none;
+            border: 1px dashed var(--vscode-panel-border, #555);
+            color: var(--vscode-descriptionForeground, #888);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            width: 100%;
+            text-align: left;
+        }
+        .btn-add-criterion:hover { color: var(--vscode-foreground); border-color: var(--vscode-focusBorder, #007acc); }
+
+        .criteria-empty-hint {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-style: italic;
+            margin-bottom: 4px;
+        }
+
+        /* ── Modal actions ── */
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-cancel {
+            background: none;
+            border: 1px solid var(--vscode-panel-border, #555);
+            color: var(--vscode-foreground);
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-cancel:hover { background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.07)); }
+
+        .btn-primary {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .btn-primary:hover { background: var(--vscode-button-hoverBackground); }
+
+        .btn-danger {
+            background: var(--vscode-errorForeground, #e51400);
+            color: #fff;
+            border: none;
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .btn-danger:hover { opacity: 0.85; }
+
+        .btn-unlock {
+            background: rgba(240,160,64,0.15);
+            border: 1px solid rgba(240,160,64,0.4);
+            color: #f0a040;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            margin-right: auto;
+        }
+        .btn-unlock:hover { background: rgba(240,160,64,0.25); }
+
+        .form-error {
+            font-size: 11px;
+            color: var(--vscode-errorForeground, #f44);
+            margin-top: 3px;
+            display: none;
+        }
+        .form-error.visible { display: block; }
+
+        /* ── Modal logs section ── */
+        .modal-logs-section {
+            margin-top: 14px;
+            border-top: 1px solid var(--vscode-panel-border, #444);
+            padding-top: 12px;
+            display: none;
+        }
+        .modal-logs-section.visible { display: block; }
+
+        .modal-logs-label {
+            font-size: 11px;
+            font-weight: 500;
+            opacity: 0.75;
+            margin-bottom: 7px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .modal-logs-list {
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .modal-logs-list::-webkit-scrollbar { width: 4px; }
+        .modal-logs-list::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #555); border-radius: 2px; }
+
+        .modal-log-entry {
+            display: flex;
+            gap: 6px;
+            font-size: 11px;
+            line-height: 1.35;
+            padding: 4px 6px;
+            border-radius: 3px;
+            background: var(--vscode-input-background);
+        }
+        .modal-log-time {
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            white-space: nowrap;
+            padding-top: 1px;
+        }
+        .modal-log-author {
+            flex-shrink: 0;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 4px;
+            border-radius: 3px;
+            height: fit-content;
+        }
+        .modal-log-author.agent { background: rgba(108,158,248,0.18); color: #6c9ef8; }
+        .modal-log-author.user  { background: rgba(76,175,80,0.15); color: #4caf50; }
+        .modal-log-msg { color: var(--vscode-foreground); word-break: break-word; }
+        .modal-logs-empty { font-size: 11px; color: var(--vscode-descriptionForeground, #888); font-style: italic; }
+
+        /* ── Evidence panels (pending-verification / done / error) ── */
+        .evidence-section {
+            margin-top: 14px;
+            border-top: 1px solid var(--vscode-panel-border, #444);
+            padding-top: 12px;
+            display: none;
+        }
+        .evidence-section.visible { display: block; }
+
+        .evidence-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.6;
+            margin-bottom: 8px;
+        }
+
+        .evidence-block {
+            margin-bottom: 10px;
+        }
+        .evidence-block-title {
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.8;
+            margin-bottom: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            user-select: none;
+        }
+        .evidence-block-title:hover { opacity: 1; }
+        .evidence-block-content {
+            font-family: monospace;
+            font-size: 11px;
+            background: var(--vscode-input-background);
+            border: 1px solid var(--vscode-panel-border, #555);
+            border-radius: 3px;
+            padding: 7px 9px;
+            max-height: 160px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--vscode-foreground);
+            opacity: 0.85;
+        }
+        .evidence-block-content::-webkit-scrollbar { width: 3px; }
+        .evidence-block-content::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #555); }
+        .evidence-block.collapsed .evidence-block-content { display: none; }
+
+        /* ── Criteria verify buttons ── */
+        .criterion-verify-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            padding: 5px 7px;
+            border-radius: 4px;
+            background: var(--vscode-input-background);
+            margin-bottom: 4px;
+        }
+        .criterion-text {
+            flex: 1;
+            font-size: 12px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .criterion-verdict {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .criterion-verdict.passed  { background: rgba(76,175,80,0.2); color: #4caf50; }
+        .criterion-verdict.failed  { background: rgba(229,57,53,0.2); color: #e57373; }
+        .criterion-verdict.pending { background: rgba(255,255,255,0.07); color: var(--vscode-descriptionForeground, #888); }
+        .criterion-note { font-size: 10px; opacity: 0.65; font-style: italic; margin-top: 2px; }
+
+        .verify-btns { display: flex; gap: 3px; flex-shrink: 0; }
+        .btn-verify {
+            border: none;
+            cursor: pointer;
+            padding: 2px 7px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 700;
+            transition: opacity 0.1s;
+        }
+        .btn-verify.pass { background: rgba(76,175,80,0.2); color: #4caf50; }
+        .btn-verify.pass:hover { background: rgba(76,175,80,0.4); }
+        .btn-verify.fail { background: rgba(229,57,53,0.2); color: #e57373; }
+        .btn-verify.fail:hover { background: rgba(229,57,53,0.4); }        /* Pending-verification card accent */
+        .col-pending-verification .task-card {
+            border-left: 2px solid #9c6fe4;
+        }
+
+
+        /* ── Standalone connection error ── */        
+        .standalone-error {
+            background: rgba(229,57,53,0.18);
+            border: 1px solid rgba(229,57,53,0.5);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #ff8a80;
+            margin-bottom: 12px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+        .standalone-error.visible { display: flex; }
+        .standalone-error.pulse {
+            animation: errorPulse 2s ease-in-out infinite;
+        }
+        @keyframes errorPulse {
+            0%, 100% { border-color: rgba(229,57,53,0.5); box-shadow: 0 0 0 0 rgba(229,57,53,0.2); }
+            50% { border-color: rgba(229,57,53,0.8); box-shadow: 0 0 8px 2px rgba(229,57,53,0.3); }
+        }
+        .standalone-error .error-icon {
+            flex-shrink: 0;
+        }
+        .standalone-error .error-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .standalone-error .error-title {
+            color: #ef5350;
+            font-weight: 600;
+        }
+        .standalone-error .error-detail {
+            font-size: 11px;
+            color: #e57373;
+            opacity: 0.8;
+        }
+        .standalone-error .retry-count {
+            font-size: 11px;
+            color: #ffab91;
+            opacity: 0.9;
+        }
+        .standalone-error .retry-btn {
+            flex-shrink: 0;
+            background: rgba(229,57,53,0.25);
+            border: 1px solid rgba(229,57,53,0.5);
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: #ff8a80;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }        
+        
+        .standalone-error .retry-btn:hover {
+            background: rgba(229,57,53,0.4);
+            border-color: rgba(229,57,53,0.7);
+        }
+
+        /* ── Bulk selection ── */
+        .col-header-left {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }        /* Custom styled checkbox for column header matching panel theme */
+        .col-select-checkbox {
+            /* Hide default browser checkbox */
+            -webkit-appearance: none;
+            appearance: none;
+            margin: 0;
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+            
+            /* Custom visual styling */
+            background: var(--vscode-input-background, #3c3c3c);
+            border: 1px solid var(--vscode-input-border, #3c3c3c);
+            border-radius: 3px;
+            position: relative;
+            transition: all 0.15s ease;
+        }
+        
+        .col-select-checkbox:hover {
+            border-color: var(--vscode-focusBorder, #007fd4);
+            background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.07));
+        }
+        
+        .col-select-checkbox:checked {
+            background: var(--vscode-button-background, #0e639c);
+            border-color: var(--vscode-button-background, #0e639c);
+        }
+        
+        .col-select-checkbox:checked:hover {
+            background: var(--vscode-button-hoverBackground, #1177bb);
+            border-color: var(--vscode-button-hoverBackground, #1177bb);
+        }
+        
+        /* Custom checkmark using pseudo-element */
+        .col-select-checkbox::after {
+            content: '';
+            position: absolute;
+            display: none;
+            left: 4px;
+            top: 1px;
+            width: 4px;
+            height: 8px;
+            border: solid var(--vscode-button-foreground, #ffffff);
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .col-select-checkbox:checked::after {
+            display: block;
+        }
+        
+        /* Focus state for accessibility */
+        .col-select-checkbox:focus {
+            outline: 1px solid var(--vscode-focusBorder, #007fd4);
+            outline-offset: 1px;
+        }
+        
+        .col-select-checkbox:focus:not(:focus-visible) {
+            outline: none;
+        }
+        
+        .col-select-checkbox:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder, #007fd4);
+            outline-offset: 1px;
+        }        /* Custom styled checkbox matching panel theme */
+        .card-select-checkbox {
+            /* Hide default browser checkbox */
+            -webkit-appearance: none;
+            appearance: none;
+            margin: 0;
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-top: 1px;
+            
+            /* Custom visual styling */
+            background: var(--vscode-input-background, #3c3c3c);
+            border: 1px solid var(--vscode-input-border, #3c3c3c);
+            border-radius: 3px;
+            position: relative;
+            transition: all 0.15s ease;
+        }
+        
+        .card-select-checkbox:hover {
+            border-color: var(--vscode-focusBorder, #007fd4);
+            background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.07));
+        }
+        
+        .card-select-checkbox:checked {
+            background: var(--vscode-button-background, #0e639c);
+            border-color: var(--vscode-button-background, #0e639c);
+        }
+        
+        .card-select-checkbox:checked:hover {
+            background: var(--vscode-button-hoverBackground, #1177bb);
+            border-color: var(--vscode-button-hoverBackground, #1177bb);
+        }
+        
+        /* Custom checkmark using pseudo-element */
+        .card-select-checkbox::after {
+            content: '';
+            position: absolute;
+            display: none;
+            left: 4px;
+            top: 1px;
+            width: 4px;
+            height: 8px;
+            border: solid var(--vscode-button-foreground, #ffffff);
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .card-select-checkbox:checked::after {
+            display: block;
+        }
+        
+        /* Focus state for accessibility */
+        .card-select-checkbox:focus {
+            outline: 1px solid var(--vscode-focusBorder, #007fd4);
+            outline-offset: 1px;
+        }
+        
+        .card-select-checkbox:focus:not(:focus-visible) {
+            outline: none;
+        }
+        
+        .card-select-checkbox:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder, #007fd4);
+            outline-offset: 1px;
+        }
+
+        .btn-delete-selected {
+            background: var(--vscode-errorBackground, #5a1d1d);
+            color: var(--vscode-errorForeground, #f48771);
+            border: 1px solid rgba(229,57,53,0.4);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-delete-selected.visible {
+            display: flex;
+        }
+        .btn-delete-selected:hover {
+            background: rgba(229,57,53,0.35);
+            border-color: rgba(229,57,53,0.7);
+        }
+
+        .selection-count {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            margin-left: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="sdd-header">
+    <div class="sdd-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.8">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+        </svg>        Spec-Driven Development Backlog
+        <span class="sdd-badge" id="task-count">0</span>
+    </div>
+    <input
+        type="text"
+        id="task-search"
+        class="sdd-search"
+        placeholder="Search tasks..."
+        autocomplete="off"
+        title="Search across all task fields"
+    />  
+    <div class="header-actions">
+        <span class="live-dot" title="Real-time updates active"></span>
+        <button class="btn-delete-selected" id="btn-delete-selected">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            Delete Selected
+        </button>
+    </div>
+</div>
+
+<div class="standalone-error" id="standalone-error">
+    <svg class="error-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <div class="error-content">
+        <div class="error-title" id="standalone-error-msg">Cannot connect to server</div>
+        <div class="error-detail">Retrying automatically...</div>
+        <div class="retry-count" id="retry-count"></div>
+    </div>
+    <button class="retry-btn" id="retry-btn" onclick="manualRetry()">🔄 Retry Now</button>
+</div>
+
+<!-- ── KANBAN BOARD ── -->
+<div class="kanban-board" id="kanban-board">
+
+    <div class="kanban-col col-open" data-status="open">        <div class="kanban-col-header">
+            <div class="col-header-left">
+                <input type="checkbox" class="col-select-checkbox" data-status="open" title="Select all visible" />
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#6c9ef8"><circle cx="12" cy="12" r="10" fill="none" stroke="#6c9ef8" stroke-width="2"/></svg>
+                Open
+                <span class="col-count" id="count-open">0</span>
+            </div>
+        </div>
+        <div class="kanban-cards" id="col-open" data-status="open"></div>
+    </div>
+
+    <div class="kanban-col col-in-progress" data-status="in-progress">        <div class="kanban-col-header">
+            <div class="col-header-left">
+                <input type="checkbox" class="col-select-checkbox" data-status="in-progress" title="Select all visible" />
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#f0a040"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                In Progress
+                <span class="col-count" id="count-in-progress">0</span>
+            </div>
+        </div>
+        <div class="kanban-cards" id="col-in-progress" data-status="in-progress"></div>
+    </div>
+
+    <div class="kanban-col col-pending-verification" data-status="pending-verification">        <div class="kanban-col-header">
+            <div class="col-header-left">
+                <input type="checkbox" class="col-select-checkbox" data-status="pending-verification" title="Select all visible" />
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#9c6fe4"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14l-4-4 1.41-1.41L11 13.17l6.59-6.59L19 8l-8 8z" opacity="0.4"/><circle cx="12" cy="12" r="10" fill="none" stroke="#9c6fe4" stroke-width="2"/></svg>
+                Pending Verification
+                <span class="col-count" id="count-pending-verification">0</span>
+            </div>
+        </div>
+        <div class="kanban-cards" id="col-pending-verification" data-status="pending-verification"></div>
+    </div>
+
+    <div class="kanban-col col-done" data-status="done">        <div class="kanban-col-header">
+            <div class="col-header-left">
+                <input type="checkbox" class="col-select-checkbox" data-status="done" title="Select all visible" />
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#4caf50"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.59L5.41 12l1.41-1.41L10 13.17l7.18-7.18 1.41 1.42L10 16.59z"/></svg>
+                Done
+                <span class="col-count" id="count-done">0</span>
+            </div>
+        </div>
+        <div class="kanban-cards" id="col-done" data-status="done"></div>
+    </div>
+
+    <div class="kanban-col col-error" data-status="error">        <div class="kanban-col-header">
+            <div class="col-header-left">
+                <input type="checkbox" class="col-select-checkbox" data-status="error" title="Select all visible" />
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#e53935"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                Error
+                <span class="col-count" id="count-error">0</span>
+            </div>
+        </div>
+        <div class="kanban-cards" id="col-error" data-status="error"></div>
+    </div>
+
+</div>
+
+<!-- ── MODAL: CREATE / EDIT ── -->
+<div class="modal-backdrop" id="modal-form">
+    <div class="modal">
+        <h3 id="modal-form-title">New Task</h3>
+
+        <!-- Template selector (create only) -->
+        <div class="form-group" id="group-template">
+            <label for="input-template">Start from template</label>
+            <select id="input-template">
+                <option value="">— No template —</option>
+            </select>
+        </div>
+
+        <!-- Title -->
+        <div class="form-group">
+            <label for="input-title">Title <span style="color:var(--vscode-errorForeground)">*</span></label>
+            <input type="text" id="input-title" placeholder="E.g. Implement JWT authentication" autocomplete="off" />
+            <div class="form-error" id="error-title">Title is required.</div>
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+            <label for="input-description">Description</label>
+            <textarea id="input-description" placeholder="Detailed description (optional)"></textarea>
+        </div>
+
+        <!-- Status (edit only) -->
+        <div class="form-group" id="group-status" style="display:none">
+            <label for="input-status">Status</label>
+            <select id="input-status">
+                <option value="open">Open</option>
+                <option value="in-progress">In Progress</option>
+                <option value="pending-verification">Pending Verification</option>
+                <option value="done">Done</option>
+                <option value="error">Error</option>
+            </select>
+        </div>
+
+        <!-- Depends on -->
+        <div class="form-group">
+            <label for="input-depends-on">Depends on (optional)</label>
+            <select id="input-depends-on">
+                <option value="">— No dependency —</option>
+            </select>
+        </div>
+
+        <!-- ── Spec section ── -->
+        <hr class="spec-section-divider">
+        <div class="spec-section-label">Spec</div>
+
+        <!-- Spec lock notice (edit only, shown when locked) -->
+        <div class="spec-lock-notice" id="spec-lock-notice" style="display:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+            Spec is locked — task is in-progress. Inputs, outputs and criteria are read-only.
+        </div>
+
+        <!-- Acceptance Criteria -->
+        <div class="form-group" id="group-criteria">
+            <label>Acceptance Criteria</label>
+            <div class="criteria-list" id="criteria-list"></div>
+            <button class="btn-add-criterion" id="btn-add-criterion" type="button">+ Add criterion</button>
+        </div>
+
+        <!-- Inputs -->
+        <div class="form-group" id="group-inputs">
+            <label for="input-inputs">
+                Inputs
+                <span style="opacity:0.5;font-weight:400;margin-left:4px">(context the agent needs)</span>
+            </label>
+            <textarea id="input-inputs" rows="3" placeholder="E.g. JWT secret is in .env as JWT_SECRET. Use HS256 algorithm."></textarea>
+        </div>
+
+        <!-- Expected Outputs -->
+        <div class="form-group" id="group-outputs">
+            <label for="input-expected-outputs">Expected Outputs</label>
+            <textarea id="input-expected-outputs" rows="3" placeholder="E.g. POST /auth/login returns { token } on valid credentials"></textarea>
+        </div>
+
+        <!-- Logs section (edit only) -->
+        <div class="modal-logs-section" id="modal-logs-section">
+            <div class="modal-logs-label">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.7"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zM11 8h2v5h-2V8zm0 7h2v2h-2v-2z"/></svg>
+                History
+                <span id="modal-logs-count" style="opacity:0.5;font-weight:400"></span>
+            </div>
+            <div class="modal-logs-list" id="modal-logs-list"></div>
+        </div>
+
+        <!-- Evidence section (pending-verification / done / error when evidence exists) -->
+        <div class="evidence-section" id="evidence-section">
+            <div class="evidence-label">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                Verification
+            </div>
+
+            <!-- Per-criterion verify buttons -->
+            <div id="criteria-verify-list" style="margin-bottom:10px"></div>
+
+            <!-- Agent summary -->
+            <div class="evidence-block" id="evidence-summary-block" style="display:none">
+                <div class="evidence-block-title" onclick="toggleEvidence('evidence-summary-block')">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14l4-4h12c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+                    Agent Summary
+                </div>
+                <div class="evidence-block-content" id="evidence-summary-content"></div>
+            </div>
+
+            <!-- Git diff -->
+            <div class="evidence-block collapsed" id="evidence-diff-block" style="display:none">
+                <div class="evidence-block-title" onclick="toggleEvidence('evidence-diff-block')">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/></svg>
+                    Git Diff <span style="opacity:0.5;font-weight:400;font-size:10px">(click to expand)</span>
+                </div>
+                <div class="evidence-block-content" id="evidence-diff-content"></div>
+            </div>
+
+            <!-- Test output -->
+            <div class="evidence-block collapsed" id="evidence-tests-block" style="display:none">
+                <div class="evidence-block-title" onclick="toggleEvidence('evidence-tests-block')">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    Test Output <span style="opacity:0.5;font-weight:400;font-size:10px">(click to expand)</span>
+                </div>
+                <div class="evidence-block-content" id="evidence-tests-content"></div>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-unlock" id="btn-unlock-spec" style="display:none">🔓 Unlock Spec</button>
+            <button class="btn-cancel" id="modal-form-cancel">Cancel</button>
+            <button class="btn-primary" id="modal-form-confirm">Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: DELETE CONFIRM ── -->
+<div class="modal-backdrop" id="modal-delete">
+    <div class="modal">
+        <h3>Confirm Deletion</h3>
+        <p id="delete-confirm-text" style="margin:0 0 6px 0;color:var(--vscode-descriptionForeground)"></p>
+        <p style="font-size:11px;color:var(--vscode-descriptionForeground);margin:0">This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button class="btn-cancel" id="modal-delete-cancel">Cancel</button>
+            <button class="btn-danger" id="modal-delete-confirm">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ── Environment detection ──────────────────────────────────────────────────
+    // Detect if we are running inside VSCode or as a standalone page.
+    // In VSCode the acquireVsCodeApi() function exists and the vscode object is real.
+    // In standalone mode we use fetch() to communicate with the REST API.
+    let isVSCode = false;
+    let isStandalone = false;
+    let apiBase = ''; // e.g. '' (relative) or 'http://localhost:7890'
+
+    // vscodeApi is acquired ONCE here; reused throughout the script.
+    // acquireVsCodeApi() can only be called once per webview — calling it again throws.
+    let vscodeApi = null;
+
+    try {
+        const hasAcquireApi = typeof acquireVsCodeApi === 'function';
+        console.log('[SDD Webview] acquireVsCodeApi exists:', hasAcquireApi);
+        if (hasAcquireApi) {
+            vscodeApi = acquireVsCodeApi();
+        }
+        console.log('[SDD Webview] acquireVsCodeApi() returned:', vscodeApi);
+        if (vscodeApi) {
+            isVSCode = true;
+        } else {
+            isStandalone = true;
+        }
+        console.log('[SDD Webview] Environment: isVSCode=' + isVSCode + ', isStandalone=' + isStandalone);
+    } catch (e) {
+        // Some VSCode environments throw in try/catch — treat as standalone
+        console.error('[SDD Webview] acquireVsCodeApi threw:', e);
+        isStandalone = true;
+    }
+
+    // Parse polling interval from URL param: ?poll=5000 (ms), defaults to 3000
+    const urlParams = new URLSearchParams(window.location.search);
+    const defaultPollInterval = 3000;
+    const pollInterval = parseInt(urlParams.get('poll')) || defaultPollInterval;
+
+    // Try to detect API base from URL if served by sdd-server (e.g. http://localhost:7890)
+    // Otherwise use relative URLs (same origin)
+    function detectApiBase() {
+        const base = window.location.origin;
+        return base;
+    }
+    apiBase = detectApiBase();
+
+    // ── State ──────────────────────────────────────────────────────────────────    let tasks = [];
+    let logsMap = {};
+    let criteriaMap = {};   // task_number → TaskCriteria[]
+    let templates = [];     // SpecTemplate[]
+    let editingTaskNumber = null;
+    let deletingTaskNumber = null;
+    let expandedCards = new Set();
+    let dragSrcNumber = null;
+    let dragSrcStatus = null;
+    let pollTimer = null;
+    let offlineMode = false;
+    let searchQuery = '';
+    let selectedTasks = new Set(); // bulk selection state
+
+    // ── Universal task search ───────────────────────────────────────────────────
+    function matchesSearch(task) {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+
+        // Core fields
+        if ((task.title || '').toLowerCase().includes(q)) return true;
+        if ((task.description || '').toLowerCase().includes(q)) return true;
+        if ((task.status || '').toLowerCase().includes(q)) return true;
+        if ((task.task_number || '').toString().toLowerCase().includes(q)) return true;
+        if ((task.inputs || '').toLowerCase().includes(q)) return true;
+        if ((task.expected_outputs || '').toLowerCase().includes(q)) return true;
+
+        // Spec embedded fields
+        if ((task.spec?.inputs || '').toLowerCase().includes(q)) return true;
+        if ((task.spec?.expected_outputs || '').toLowerCase().includes(q)) return true;
+
+
+        // Dependency task number
+        if ((task.depends_on || '').toString().toLowerCase().includes(q)) return true;
+
+
+        // Criteria text
+        const criteria = criteriaMap[task.task_number] || [];
+        for (const c of criteria) {
+            if ((c.criterion || '').toLowerCase().includes(q)) return true;
+        }
+
+        // Log messages
+        const logs = logsMap[task.task_number] || [];
+        for (const l of logs) {
+            if ((l.message || '').toLowerCase().includes(q)) return true;
+        }
+
+        return false;
+    }    function onSearchInput(e) {
+        searchQuery = e.target.value;
+        // Clear selection when filter changes — avoid deleting unseen tasks
+        selectedTasks.clear();
+        updateDeleteButton();
+        renderBoard();
+    }
+
+    // ── Bulk selection helpers ──────────────────────────────────────────────────
+    function getFilteredVisibleTasks() {
+        return tasks.filter(matchesSearch);
+    }
+
+    function getSelectedVisibleCount() {
+        let count = 0;
+        for (const tn of selectedTasks) {
+            if (tasks.some(t => t.task_number === tn && matchesSearch(t))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function updateDeleteButton() {
+        const btn = document.getElementById('btn-delete-selected');
+        const count = getSelectedVisibleCount();
+        if (count > 0) {
+            btn.classList.add('visible');
+            btn.innerHTML = `
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                Delete (${count})
+            `;
+        } else {
+            btn.classList.remove('visible');
+        }
+    }
+
+    function handleColSelectAll(status, checked) {
+        const visible = getFilteredVisibleTasks().filter(t => t.status === status);
+        if (checked) {
+            for (const t of visible) { selectedTasks.add(t.task_number); }
+        } else {
+            for (const t of visible) { selectedTasks.delete(t.task_number); }
+        }
+        updateDeleteButton();
+        renderBoard();
+    }
+
+    function handleCardSelect(taskNumber, checked) {
+        if (checked) { selectedTasks.add(taskNumber); }
+        else { selectedTasks.delete(taskNumber); }
+        updateDeleteButton();
+        // Re-render just the card checkbox state without full board rebuild
+        const card = document.querySelector(`.task-card[data-task-number="${taskNumber}"]`);
+        if (card) {
+            const cb = card.querySelector('.card-select-checkbox');
+            if (cb) { cb.checked = checked; }
+        }
+    }
+
+    document.getElementById('task-search').addEventListener('input', onSearchInput);
+
+    // ── VSCode message sender ───────────────────────────────────────────────────
+    // vscodeApi was already acquired once during environment detection above.
+
+    function sendVscode(msg) {
+        if (vscodeApi) {
+            vscodeApi.postMessage(msg);
+        } else if (isVSCode) {
+            console.error('[SDD Webview] isVSCode=true but vscodeApi is null — acquireVsCodeApi() returned null');
+        }
+    }
+
+    // ── REST API client (standalone mode) ──────────────────────────────────────
+    async function apiGet(endpoint) {
+        const res = await fetch(apiBase + endpoint, { credentials: 'include' });
+        if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+        return res.json();
+    }
+
+    async function apiPost(endpoint, body) {
+        const res = await fetch(apiBase + endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            credentials: 'include',
+        });
+        if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+        return res.json();
+    }
+
+    async function apiPatch(endpoint, body) {
+        const res = await fetch(apiBase + endpoint, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            credentials: 'include',
+        });
+        if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+        return res.json();
+    }
+
+    async function apiDelete(endpoint) {
+        const res = await fetch(apiBase + endpoint, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+    }
+
+    // ── Standalone polling ──────────────────────────────────────────────────────
+    async function loadTasksViaApi() {
+        try {
+            const data = await apiGet('/api/tasks');
+            tasks = data || [];
+            // logsMap and criteriaMap come embedded in the task objects
+            for (const t of tasks) {
+                if (t.logs) { logsMap[t.task_number] = t.logs; }
+                if (t.criteria) { criteriaMap[t.task_number] = t.criteria; }
+            }
+            renderBoard();
+            hideStandaloneError();
+            offlineMode = false;        } catch (err) {
+            showStandaloneError('Server unreachable — ' + (err.message || 'connection failed'));
+            offlineMode = true;
+        }
+    }
+
+    async function loadTemplatesViaApi() {
+        try {
+            // Templates endpoint not yet in API — skip gracefully
+        } catch { /* ignore */ }
+    }
+
+    async function refreshSingleTaskApi(taskNumber) {
+        try {
+            const task = await apiGet(`/api/tasks/${taskNumber}`);
+            if (task) {
+                const idx = tasks.findIndex(t => t.task_number === task.task_number);
+                if (idx >= 0) { tasks[idx] = task; } else { tasks.push(task); }
+                if (task.logs) { logsMap[task.task_number] = task.logs; }
+                if (task.criteria) { criteriaMap[task.task_number] = task.criteria; }
+                tasks.sort((a, b) => a.sort_order - b.sort_order);
+            }
+            renderBoard();
+        } catch { /* ignore */ }
+    }
+
+    // ── Polling (standalone or VSCode fallback) ─────────────────────────────────
+    function startPolling() {
+        if (pollTimer) { return; }
+        pollTimer = setInterval(() => {
+            if (isVSCode) {
+                sendVscode({ command: 'requestLoadTasks' });
+            } else {
+                loadTasksViaApi();
+            }
+        }, pollInterval);
+    }
+
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }    // ── Standalone error ───────────────────────────────────────────────────────
+    let apiRetryCount = 0;
+
+    function showStandaloneError(msg) {
+        const el = document.getElementById('standalone-error');
+        if (el) {
+            document.getElementById('standalone-error-msg').textContent = msg;
+            el.classList.add('visible');
+            el.classList.add('pulse');
+            apiRetryCount++;
+            document.getElementById('retry-count').textContent = `Attempt ${apiRetryCount} — will keep retrying`;
+        }
+    }
+
+    function hideStandaloneError() {
+        const el = document.getElementById('standalone-error');
+        if (el) {
+            el.classList.remove('visible');
+            el.classList.remove('pulse');
+        }
+        apiRetryCount = 0;
+        document.getElementById('retry-count').textContent = '';
+    }
+
+    function manualRetry() {
+        apiRetryCount = 0;
+        document.getElementById('retry-count').textContent = 'Retrying now...';
+        loadTasksViaApi();
+    }
+
+    // ── VSCode message handler ─────────────────────────────────────────────────
+    window.addEventListener('message', (event) => {
+        const msg = event.data;
+        switch (msg.command) {
+            case 'loadTasks':
+                console.log('[SDD Webview] loadTasks received, taskCount=' + ((msg.tasks && msg.tasks.length) || 0));
+                tasks = msg.tasks || [];
+                if (msg.logsMap) { logsMap = msg.logsMap; }
+                if (msg.criteriaMap) { criteriaMap = msg.criteriaMap; }
+                renderBoard();
+                break;
+
+            case 'loadTemplates':
+                templates = msg.templates || [];
+                populateTemplateSelector();
+                break;
+
+            case 'taskCreated':
+            case 'taskUpdated': {
+                if (msg.task) {
+                    const idx = tasks.findIndex(t => t.task_number === msg.task.task_number);
+                    if (idx >= 0) { tasks[idx] = msg.task; } else { tasks.push(msg.task); }
+                    tasks.sort((a, b) => a.sort_order - b.sort_order);
+                }
+                if (msg.logs) { logsMap[msg.task.task_number] = msg.logs; }
+                if (msg.criteria) { criteriaMap[msg.task.task_number] = msg.criteria; }
+                renderBoard();
+                // Refresh modal if it's open for this task
+                if (editingTaskNumber === msg.task?.task_number) {
+                    refreshModalLogs(msg.task.task_number);
+                }
+                break;
+            }
+
+            case 'taskDeleted':
+                tasks = tasks.filter(t => t.task_number !== msg.taskNumber);
+                delete logsMap[msg.taskNumber];
+                delete criteriaMap[msg.taskNumber];
+                renderBoard();
+                break;
+
+            case 'taskLogAdded': {
+                const tn = msg.task_number;
+                if (!logsMap[tn]) { logsMap[tn] = []; }
+                logsMap[tn].push(msg.log);
+                // Update card logs if expanded
+                if (expandedCards.has(tn)) {
+                    const logsEl = document.querySelector(`[data-task-number="${tn}"] .card-logs`);
+                    if (logsEl) { renderLogs(logsEl, logsMap[tn]); }
+                }
+                // Update log count badge
+                const countEl = document.querySelector(`[data-task-number="${tn}"] .card-log-count`);
+                if (countEl) { countEl.textContent = `${logsMap[tn].length} log${logsMap[tn].length !== 1 ? 's' : ''}`; }                // Update modal logs if open for this task
+                if (editingTaskNumber === tn && document.getElementById('modal-logs-section').classList.contains('visible')) {
+                    refreshModalLogs(tn);
+                }
+                break;
+            }
+
+            case 'sddError':
+                showError(msg.error || 'Unknown error');
+                break;
+        }
+    });
+
+    // Signal to the extension that the webview is fully initialized and ready to receive messages
+    console.log('[SDD Webview] isVSCode=' + isVSCode + ', vscodeApi=' + (vscodeApi !== null) + ', apiBase=' + apiBase + ' — sending webviewReady');
+    sendVscode({ command: 'webviewReady' });
+    console.log('[SDD Webview] webviewReady sent');
+
+    // ── Error bar ─────────────────────────────────────────────────────────────
+    function showError(msg) {
+        let el = document.getElementById('sdd-error-bar');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'sdd-error-bar';
+            el.style.cssText = 'background:var(--vscode-errorBackground,#5a1d1d);color:var(--vscode-errorForeground,#f48771);padding:7px 12px;border-radius:4px;margin-bottom:12px;font-size:12px;';
+            document.querySelector('.sdd-header').after(el);
+        }
+        el.textContent = 'Error: ' + msg;
+        setTimeout(() => { if (el.parentNode) { el.parentNode.removeChild(el); } }, 6000);
+    }    // ── Render board ──────────────────────────────────────────────────────────
+    const STATUSES = ['open', 'in-progress', 'pending-verification', 'done', 'error'];
+
+    function renderBoard() {
+        const filtered = tasks.filter(matchesSearch);
+        const total = filtered.length;
+        const open = filtered.filter(t => t.status === 'open').length;
+        const inProg = filtered.filter(t => t.status === 'in-progress').length;
+        const pend = filtered.filter(t => t.status === 'pending-verification').length;
+        const done = filtered.filter(t => t.status === 'done').length;
+        console.log('[SDD Webview] renderBoard: total=' + total + ', open=' + open + ', in-progress=' + inProg + ', pending-verif=' + pend + ', done=' + done);
+
+        const badge = document.getElementById('task-count');
+        if (searchQuery) {
+            badge.textContent = total;
+            badge.title = `${total} result${total !== 1 ? 's' : ''} for "${searchQuery}"`;
+        } else {
+            badge.textContent = total;
+            badge.title = '';
+        }        for (const status of STATUSES) {
+            const col = document.getElementById('col-' + status);
+            const countEl = document.getElementById('count-' + status);
+            const colTasks = filtered.filter(t => t.status === status);
+            countEl.textContent = colTasks.length;
+            col.innerHTML = '';
+
+            if (colTasks.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'col-empty';
+                empty.textContent = 'Empty';
+                col.appendChild(empty);
+                continue;
+            }
+
+            for (const task of colTasks) {
+                col.appendChild(buildCard(task));
+            }
+        }
+    }
+
+    function buildCard(task) {
+        const logs = logsMap[task.task_number] || [];
+        const criteria = criteriaMap[task.task_number] || [];
+        const isExpanded = expandedCards.has(task.task_number);
+        const isLocked = !!task.spec_locked_at;
+
+        const card = document.createElement('div');
+        card.className = 'task-card' + (isExpanded ? ' expanded' : '');
+        card.draggable = true;
+        card.dataset.taskNumber = task.task_number;
+        card.dataset.status = task.status;
+
+        // Build meta badges
+        let metaBadges = '';
+        if (isLocked) {
+            metaBadges += `<span class="card-badge lock-badge" title="Spec is locked">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                locked
+            </span>`;
+        }
+        if (criteria.length > 0) {
+            const passed = criteria.filter(c => c.passed === 1).length;
+            const failed = criteria.filter(c => c.passed === 0).length;
+            const total = criteria.length;
+            const badgeColor = failed > 0 ? '#e57373' : passed === total ? '#4caf50' : 'var(--vscode-descriptionForeground, #888)';
+            const badgeTitle = `${passed}/${total} passed${failed > 0 ? `, ${failed} failed` : ''}`;
+            metaBadges += `<span class="card-badge criteria-badge" title="${badgeTitle}" style="color:${badgeColor}">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                ${passed > 0 || failed > 0 ? `${passed}/${total}` : `${total} criteri${total !== 1 ? 'a' : 'on'}`}
+            </span>`;
+        }
+        if (task.depends_on) {
+            metaBadges += `<span class="card-badge dep-badge" title="Depends on #${escapeHtml(task.depends_on)}">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+                depends on <span class="card-dep-badge-inner">#${escapeHtml(task.depends_on)}</span>
+            </span>`;
+        }        const isSelected = selectedTasks.has(task.task_number);
+        card.innerHTML = `
+            <div class="card-header">
+                <input type="checkbox" class="card-select-checkbox" data-task-number="${task.task_number}" ${isSelected ? 'checked' : ''} title="Select task" />
+                <span class="card-number">#${task.task_number}</span>
+                <span class="card-title">${escapeHtml(task.title)}</span>
+            </div>
+            ${task.description ? `<div class="card-desc">${escapeHtml(task.description)}</div>` : ''}
+            ${metaBadges ? `<div class="card-meta">${metaBadges}</div>` : ''}
+            <div class="card-footer">
+                <span class="card-log-count" title="View history">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zM11 8h2v5h-2V8zm0 7h2v2h-2v-2z"/></svg>
+                    ${logs.length} log${logs.length !== 1 ? 's' : ''}
+                </span>
+                <div class="card-actions">
+                    <button class="icon-btn edit-btn" title="Edit">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                    <button class="icon-btn delete-btn" title="Delete">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="card-logs${isExpanded ? ' open' : ''}"></div>
+        `;
+
+        const logsEl = card.querySelector('.card-logs');
+        renderLogs(logsEl, logs);
+
+        card.querySelector('.card-log-count').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (expandedCards.has(task.task_number)) {
+                expandedCards.delete(task.task_number);
+                logsEl.classList.remove('open');
+            } else {                expandedCards.add(task.task_number);
+                logsEl.classList.add('open');
+                if (isVSCode) {
+                    sendVscode({ command: 'requestTaskLogs', taskNumber: task.task_number });
+                }
+            }
+        });
+
+        const criteriaEl = card.querySelector('.criteria-badge');
+        if (criteriaEl) {
+            criteriaEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openEditModal(task);
+            });
+        }
+
+        card.querySelector('.edit-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditModal(task);
+        });        card.querySelector('.delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeleteModal(task);
+        });
+
+        card.querySelector('.card-select-checkbox').addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleCardSelect(task.task_number, e.target.checked);
+        });
+
+        card.addEventListener('dblclick', (e) => {
+            if (!e.target.closest('button, input, a')) openEditModal(task);
+        });
+        card.addEventListener('dragstart', onDragStart);
+        card.addEventListener('dragend', onDragEnd);
+        card.addEventListener('dragover', onCardDragOver);
+        card.addEventListener('dragleave', onCardDragLeave);
+        card.addEventListener('drop', onCardDrop);
+
+        return card;
+    }
+
+    function renderLogs(container, logs) {
+        if (logs.length === 0) {
+            container.innerHTML = '<div class="logs-empty">No history yet.</div>';
+            return;
+        }
+        container.innerHTML = logs.map(l => `
+            <div class="log-entry">
+                <span class="log-time">${formatTime(l.created_at)}</span>
+                <span class="log-author ${l.created_by === 'user' ? 'user' : 'agent'}">${escapeHtml(l.created_by || 'agent')}</span>
+                <span class="log-message">${escapeHtml(l.message)}</span>
+            </div>
+        `).join('');
+    }
+
+    // ── Drag between columns ──────────────────────────────────────────────────
+
+    function onDragStart(e) {
+        dragSrcNumber = parseInt(this.dataset.taskNumber, 10);
+        dragSrcStatus = this.dataset.status;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function onDragEnd() {
+        this.classList.remove('dragging', 'drag-over-card');
+        document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over-col'));
+        dragSrcNumber = null;
+        dragSrcStatus = null;
+    }
+
+    function onCardDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.classList.add('drag-over-card');
+        const col = this.closest('.kanban-col');
+        if (col) { col.classList.add('drag-over-col'); }
+    }
+
+    function onCardDragLeave() {
+        this.classList.remove('drag-over-card');
+    }
+
+    function onCardDrop(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over-card');
+        document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over-col'));
+
+        if (!dragSrcNumber || dragSrcNumber === parseInt(this.dataset.taskNumber, 10)) { return; }
+
+        const destStatus = this.closest('.kanban-cards').dataset.status;
+        const srcTask = tasks.find(t => t.task_number === dragSrcNumber);
+        if (!srcTask) { return; }
+
+        const srcIdx = tasks.findIndex(t => t.task_number === dragSrcNumber);
+        const dstIdx = tasks.findIndex(t => t.task_number === parseInt(this.dataset.taskNumber, 10));
+
+        tasks.splice(srcIdx, 1);
+        tasks.splice(dstIdx, 0, srcTask);
+        tasks.forEach((t, i) => { t.sort_order = i; });        if (srcTask.status !== destStatus) {
+            srcTask.status = destStatus;
+            if (isVSCode) {
+                sendVscode({
+                    command: 'requestUpdateTask',
+                    taskNumber: dragSrcNumber,
+                    updates: { status: destStatus }
+                });
+            } else {
+                apiPatch(`/api/tasks/${dragSrcNumber}`, { status: destStatus }).then(() => refreshSingleTaskApi(dragSrcNumber)).catch(err => showStandaloneError('Failed to update task — ' + (err.message || 'unknown error')));
+            }
+        } else {
+            if (isVSCode) {
+                sendVscode({
+                    command: 'requestUpdateOrder',
+                    taskNumbers: tasks.map(t => t.task_number)
+                });
+            }
+        }
+
+        renderBoard();
+    }
+
+    document.querySelectorAll('.kanban-cards').forEach(col => {
+        col.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            col.closest('.kanban-col').classList.add('drag-over-col');
+        });
+        col.addEventListener('dragleave', () => {
+            col.closest('.kanban-col').classList.remove('drag-over-col');
+        });
+        col.addEventListener('drop', (e) => {
+            e.stopPropagation();
+            col.closest('.kanban-col').classList.remove('drag-over-col');
+            if (!dragSrcNumber) { return; }
+
+            const destStatus = col.dataset.status;
+            const srcTask = tasks.find(t => t.task_number === dragSrcNumber);
+            if (!srcTask || srcTask.status === destStatus) { return; }            srcTask.status = destStatus;
+            if (isVSCode) {
+                sendVscode({
+                    command: 'requestUpdateTask',
+                    taskNumber: dragSrcNumber,
+                    updates: { status: destStatus }
+                });
+            } else {
+                apiPatch(`/api/tasks/${dragSrcNumber}`, { status: destStatus }).then(() => refreshSingleTaskApi(dragSrcNumber)).catch(err => showStandaloneError('Failed to update task — ' + (err.message || 'unknown error')));
+            }
+            renderBoard();
+        });
+    });
+
+    // ── Templates ─────────────────────────────────────────────────────────────
+
+    function populateTemplateSelector() {
+        const sel = document.getElementById('input-template');
+        const current = sel.value;
+        sel.innerHTML = '<option value="">— No template —</option>';
+        for (const t of templates) {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            if (t.description) { opt.title = t.description; }
+            sel.appendChild(opt);
+        }
+        sel.value = current || '';
+    }
+
+    document.getElementById('input-template').addEventListener('change', (e) => {
+        const templateId = parseInt(e.target.value);
+        if (!templateId) { return; }
+        const template = templates.find(t => t.id === templateId);
+        if (!template) { return; }
+
+        if (template.default_inputs) {
+            document.getElementById('input-inputs').value = template.default_inputs;
+        }
+        if (template.default_outputs) {
+            document.getElementById('input-expected-outputs').value = template.default_outputs;
+        }
+        if (template.default_criteria) {
+            try {
+                const list = JSON.parse(template.default_criteria);
+                setCriteriaList(list);
+            } catch { /* malformed JSON — ignore */ }
+        }
+    });
+
+    // ── Criteria list management ───────────────────────────────────────────────
+
+    function setCriteriaList(criteriaArray) {
+        const container = document.getElementById('criteria-list');
+        container.innerHTML = '';
+        for (const c of criteriaArray) {
+            addCriterionRow(c);
+        }
+        renumberCriteria();
+    }
+
+    function addCriterionRow(value, readOnly) {
+        const container = document.getElementById('criteria-list');
+        const row = document.createElement('div');
+        row.className = 'criterion-row';
+        row.innerHTML = `
+            <span class="criterion-number"></span>
+            <input class="criterion-input" type="text"
+                placeholder="E.g. All existing tests pass"
+                value="${escapeHtml(value || '')}"
+                ${readOnly ? 'readonly' : ''} />
+            ${readOnly ? '' : '<button class="btn-remove-criterion" type="button" title="Remove">×</button>'}
+        `;
+        if (!readOnly) {
+            row.querySelector('.btn-remove-criterion').addEventListener('click', () => {
+                row.remove();
+                renumberCriteria();
+            });
+        }
+        container.appendChild(row);
+        renumberCriteria();
+        return row;
+    }
+
+    function renumberCriteria() {
+        const rows = document.querySelectorAll('#criteria-list .criterion-row');
+        rows.forEach((row, i) => {
+            const num = row.querySelector('.criterion-number');
+            if (num) { num.textContent = (i + 1) + '.'; }
+        });
+    }
+
+    function getCriteriaValues() {
+        const inputs = document.querySelectorAll('#criteria-list .criterion-input');
+        return Array.from(inputs).map(i => i.value.trim()).filter(v => v.length > 0);
+    }
+
+    document.getElementById('btn-add-criterion').addEventListener('click', () => {
+        const row = addCriterionRow('');
+        row.querySelector('.criterion-input').focus();
+    });
+
+    // ── Dependency select ─────────────────────────────────────────────────────
+
+    function populateDependsOn(excludeTaskNumber) {
+        const sel = document.getElementById('input-depends-on');
+        const current = sel.value;
+        sel.innerHTML = '<option value="">— No dependency —</option>';
+        for (const t of tasks) {
+            if (t.task_number === excludeTaskNumber) { continue; }
+            const opt = document.createElement('option');
+            opt.value = t.task_number;
+            opt.textContent = `#${t.task_number} — ${t.title.substring(0, 40)}${t.title.length > 40 ? '…' : ''}`;
+            sel.appendChild(opt);
+        }
+        sel.value = current || '';
+    }
+
+    // ── Column select-all checkboxes (after DOM ready) ─────────────────────────
+    setTimeout(() => {
+        document.querySelectorAll('.col-select-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                e.stopPropagation();
+                handleColSelectAll(e.target.dataset.status, e.target.checked);
+            });
+        });
+    }, 0);
+
+    // ── Create Modal ──────────────────────────────────────────────────────────
+
+    function openCreateModal() {
+        editingTaskNumber = null;
+        document.getElementById('modal-form-title').textContent = 'New Task';
+        document.getElementById('modal-form-confirm').textContent = 'Create';
+        document.getElementById('input-title').value = '';
+        document.getElementById('input-description').value = '';
+        document.getElementById('input-inputs').value = '';
+        document.getElementById('input-expected-outputs').value = '';
+        document.getElementById('input-template').value = '';
+        document.getElementById('group-template').style.display = 'block';
+        document.getElementById('group-status').style.display = 'none';
+        document.getElementById('error-title').classList.remove('visible');
+        document.getElementById('spec-lock-notice').style.display = 'none';
+        document.getElementById('btn-unlock-spec').style.display = 'none';
+        document.getElementById('modal-logs-section').classList.remove('visible');
+
+        // Unlock spec fields
+        setSpecFieldsLocked(false);
+
+        // Clear criteria
+        setCriteriaList([]);
+
+        populateDependsOn(null);
+        document.getElementById('input-depends-on').value = '';
+        document.getElementById('modal-form').classList.add('open');
+        setTimeout(() => document.getElementById('input-title').focus(), 50);
+    }
+
+    // ── Edit Modal ────────────────────────────────────────────────────────────
+
+    function openEditModal(task) {
+        editingTaskNumber = task.task_number;
+        const isLocked = !!task.spec_locked_at;
+
+        document.getElementById('modal-form-title').textContent = `Edit Task #${task.task_number}`;
+        document.getElementById('modal-form-confirm').textContent = 'Save';
+        document.getElementById('input-title').value = task.title;
+        document.getElementById('input-description').value = task.description || '';
+        document.getElementById('input-inputs').value = task.inputs || '';
+        document.getElementById('input-expected-outputs').value = task.expected_outputs || '';
+        document.getElementById('input-status').value = task.status;
+        document.getElementById('group-template').style.display = 'none';
+        document.getElementById('group-status').style.display = 'block';
+        document.getElementById('error-title').classList.remove('visible');
+
+        // Lock notice and unlock button
+        document.getElementById('spec-lock-notice').style.display = isLocked ? 'flex' : 'none';
+        document.getElementById('btn-unlock-spec').style.display = isLocked ? 'inline-block' : 'none';
+        document.getElementById('btn-unlock-spec').dataset.taskNumber = task.task_number;
+
+        // Spec fields read-only state
+        setSpecFieldsLocked(isLocked);
+
+        // Criteria
+        const criteria = criteriaMap[task.task_number] || [];
+        setCriteriaList(criteria.map(c => c.criterion));
+        if (isLocked) {
+            // Make all existing criterion inputs read-only and hide remove buttons
+            document.querySelectorAll('#criteria-list .criterion-input').forEach(i => { i.readOnly = true; });
+            document.querySelectorAll('#criteria-list .btn-remove-criterion').forEach(b => { b.style.display = 'none'; });
+            document.getElementById('btn-add-criterion').style.display = 'none';
+        } else {
+            document.getElementById('btn-add-criterion').style.display = 'block';
+        }
+
+        // Dependency
+        populateDependsOn(task.task_number);
+        document.getElementById('input-depends-on').value = task.depends_on || '';
+
+        // Logs
+        refreshModalLogs(task.task_number);
+
+        // Evidence section — shown for pending-verification, done, and error when evidence exists
+        const isPendingVerification = task.status === 'pending-verification';
+        const hasEvidence = isPendingVerification || ((task.status === 'done' || task.status === 'error') &&
+            (task.evidence_summary || task.git_diff_snapshot || task.test_output_snapshot));
+        const evidenceSection = document.getElementById('evidence-section');
+
+        if (hasEvidence) {
+            evidenceSection.classList.add('visible');
+
+            // Criteria list — verify buttons only when pending-verification, read-only otherwise
+            renderCriteriaVerifyList(task.task_number, criteria, isPendingVerification);
+
+            // Agent summary
+            const summaryBlock = document.getElementById('evidence-summary-block');
+            if (task.evidence_summary) {
+                summaryBlock.style.display = 'block';
+                document.getElementById('evidence-summary-content').textContent = task.evidence_summary;
+            } else { summaryBlock.style.display = 'none'; }
+
+            // Git diff
+            const diffBlock = document.getElementById('evidence-diff-block');
+            if (task.git_diff_snapshot) {
+                diffBlock.style.display = 'block';
+                document.getElementById('evidence-diff-content').textContent = task.git_diff_snapshot;
+            } else { diffBlock.style.display = 'none'; }
+
+            // Test output
+            const testsBlock = document.getElementById('evidence-tests-block');
+            if (task.test_output_snapshot) {
+                testsBlock.style.display = 'block';
+                document.getElementById('evidence-tests-content').textContent = task.test_output_snapshot;
+            } else { testsBlock.style.display = 'none'; }
+        } else {
+            evidenceSection.classList.remove('visible');
+        }
+
+        document.getElementById('modal-form').classList.add('open');
+        setTimeout(() => document.getElementById('input-title').focus(), 50);
+    }
+
+    function setSpecFieldsLocked(locked) {
+        ['group-inputs', 'group-outputs', 'group-criteria'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (locked) { el.classList.add('field-locked'); }
+                else { el.classList.remove('field-locked'); }
+            }
+        });
+    }
+
+    function refreshModalLogs(taskNumber) {
+        const logs = logsMap[taskNumber] || [];
+        const section = document.getElementById('modal-logs-section');
+        const list = document.getElementById('modal-logs-list');
+        const count = document.getElementById('modal-logs-count');
+        count.textContent = logs.length > 0 ? `(${logs.length})` : '';
+        if (logs.length === 0) {
+            list.innerHTML = '<div class="modal-logs-empty">No history yet.</div>';
+        } else {
+            list.innerHTML = logs.map(l => `
+                <div class="modal-log-entry">
+                    <span class="modal-log-time">${formatTime(l.created_at)}</span>
+                    <span class="modal-log-author ${l.created_by === 'user' ? 'user' : 'agent'}">${escapeHtml(l.created_by || 'agent')}</span>
+                    <span class="modal-log-msg">${escapeHtml(l.message)}</span>
+                </div>
+            `).join('');
+            // Scroll to latest log
+            setTimeout(() => { list.scrollTop = list.scrollHeight; }, 30);
+        }
+        section.classList.add('visible');
+    }
+
+    function closeFormModal() {
+        document.getElementById('modal-form').classList.remove('open');
+        editingTaskNumber = null;
+    }
+
+    document.getElementById('modal-form-cancel').addEventListener('click', closeFormModal);
+    document.getElementById('modal-form').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('modal-form')) { closeFormModal(); }
+    });    // Unlock spec button
+    document.getElementById('btn-unlock-spec').addEventListener('click', () => {
+        const taskNumber = document.getElementById('btn-unlock-spec').dataset.taskNumber;
+        if (!taskNumber) { return; }
+        if (isVSCode) {
+            sendVscode({ command: 'requestUnlockSpec', taskNumber });
+        }
+        closeFormModal();
+    });
+
+    document.getElementById('modal-form-confirm').addEventListener('click', async () => {
+        const title = document.getElementById('input-title').value.trim();
+        if (!title) {
+            document.getElementById('error-title').classList.add('visible');
+            document.getElementById('input-title').focus();
+            return;
+        }
+        document.getElementById('error-title').classList.remove('visible');
+
+        const description = document.getElementById('input-description').value.trim();
+        const dependsOn = document.getElementById('input-depends-on').value || null;
+        const inputs = document.getElementById('input-inputs').value.trim() || null;
+        const expectedOutputs = document.getElementById('input-expected-outputs').value.trim() || null;
+        const criteria = getCriteriaValues();
+
+        if (editingTaskNumber) {
+            const status = document.getElementById('input-status').value;
+            const task = tasks.find(t => t.task_number === editingTaskNumber);
+            const isLocked = task && !!task.spec_locked_at;
+
+            const updates = { title, description, status, depends_on: dependsOn };
+            if (!isLocked) {
+                updates.inputs = inputs;
+                updates.expected_outputs = expectedOutputs;
+            }            if (isVSCode) {
+                sendVscode({
+                    command: 'requestUpdateTask',
+                    taskNumber: editingTaskNumber,
+                    updates,
+                    criteria: isLocked ? undefined : criteria
+                });
+            } else {
+                // Standalone: call REST API
+                try {
+                    await apiPatch(`/api/tasks/${editingTaskNumber}`, {
+                        ...updates,
+                        criteria: isLocked ? undefined : criteria,
+                    });
+                    await refreshSingleTaskApi(editingTaskNumber);
+                    if (editingTaskNumber) { refreshModalLogs(editingTaskNumber); }
+                } catch (err) {
+                    showStandaloneError('Failed to update task — ' + (err.message || 'unknown error'));
+                }
+            }
+        } else {
+            const templateId = parseInt(document.getElementById('input-template').value) || null;
+            if (isVSCode) {
+                sendVscode({
+                    command: 'requestCreateTask',
+                    title,
+                    description,
+                    dependsOn,
+                    inputs,
+                    expectedOutputs,
+                    criteria,
+                    templateId
+                });
+            } else {
+                // Standalone: call REST API
+                try {
+                    const created = await apiPost('/api/tasks', {
+                        title,
+                        description,
+                        depends_on: dependsOn,
+                        inputs,
+                        expected_outputs: expectedOutputs,
+                        criteria,
+                    });
+                    if (created.task_number) {
+                        await loadTasksViaApi();
+                    }
+                } catch (err) {
+                    showStandaloneError('Failed to create task — ' + (err.message || 'unknown error'));
+                }
+            }
+        }
+        closeFormModal();
+    });
+
+    document.getElementById('input-title').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('modal-form-confirm').click();
+        }
+    });
+
+    // ── Delete Modal ──────────────────────────────────────────────────────────    function openDeleteModal(task) {
+    function openDeleteModal(task) {
+        deletingTaskNumber = task.task_number;
+        document.getElementById('delete-confirm-text').textContent =
+            `Delete task #${task.task_number}: "${task.title}"?`;
+        document.getElementById('modal-delete-confirm').textContent = 'Delete';
+        document.getElementById('modal-delete').classList.add('open');
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('modal-delete').classList.remove('open');
+        deletingTaskNumber = null;
+        document.getElementById('modal-delete-confirm').textContent = 'Delete';
+    }    document.getElementById('modal-delete-cancel').addEventListener('click', closeDeleteModal);
+    document.getElementById('modal-delete').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('modal-delete')) { closeDeleteModal(); }
+    });
+
+    // Bulk delete button
+    document.getElementById('btn-delete-selected').addEventListener('click', () => {
+        const count = selectedTasks.size;
+        if (count === 0) return;
+        deletingTaskNumber = null;
+        document.getElementById('delete-confirm-text').textContent =
+            `Delete ${count} selected task${count > 1 ? 's' : ''}?`;
+        document.getElementById('modal-delete-confirm').textContent = `Delete (${count})`;
+        document.getElementById('modal-delete').classList.add('open');
+    });
+
+    document.getElementById('modal-delete-confirm').addEventListener('click', async () => {
+        const isBulkDelete = document.getElementById('modal-delete-confirm').textContent !== 'Delete';
+        const taskToDelete = deletingTaskNumber; // Salva antes de fechar o modal
+        closeDeleteModal();
+
+        if (isBulkDelete) {
+            // Bulk delete — only visible selected tasks
+            const toDelete = [];
+            for (const tn of selectedTasks) {
+                if (tasks.some(t => t.task_number === tn && matchesSearch(t))) {
+                    toDelete.push(tn);
+                }
+            }            for (const tn of toDelete) {
+                try {
+                    if (isVSCode) {
+                        sendVscode({ command: 'requestDeleteTask', taskNumber: tn });
+                        // Task será removida via evento taskDeleted
+                    } else {
+                        await apiDelete(`/api/tasks/${tn}`);
+                        tasks = tasks.filter(t => t.task_number !== tn);
+                        delete logsMap[tn];
+                        delete criteriaMap[tn];
+                    }
+                } catch (err) {
+                    showError(`Failed to delete task #${tn}`);
+                }
+            }
+
+            selectedTasks.clear();
+            updateDeleteButton();
+            renderBoard();
+        } else if (taskToDelete) {
+            // Single delete
+            try {
+                if (isVSCode) {
+                    sendVscode({ command: 'requestDeleteTask', taskNumber: taskToDelete });
+                } else {
+                    await apiDelete(`/api/tasks/${taskToDelete}`);
+                    tasks = tasks.filter(t => t.task_number !== taskToDelete);
+                }
+                renderBoard();
+            } catch (err) {
+                showStandaloneError('Failed to delete task — ' + (err.message || 'unknown error'));
+            }
+        }
+    });
+
+    // ── Evidence helpers ──────────────────────────────────────────────────────
+
+    function toggleEvidence(blockId) {
+        document.getElementById(blockId).classList.toggle('collapsed');
+    }
+
+    function renderCriteriaVerifyList(taskNumber, criteria, showVerifyButtons) {
+        const container = document.getElementById('criteria-verify-list');
+        if (!criteria || criteria.length === 0) {
+            container.innerHTML = '<div style="font-size:11px;opacity:0.5;font-style:italic">No acceptance criteria defined.</div>';
+            return;
+        }
+        container.innerHTML = criteria.map((c, i) => {
+            const verdictClass = c.passed === 1 ? 'passed' : c.passed === 0 ? 'failed' : 'pending';
+            const verdictText = c.passed === 1 ? '✓ Passed' : c.passed === 0 ? '✗ Failed' : 'Pending';
+            const verifyBtns = showVerifyButtons
+                ? `<div class="verify-btns">
+                       <button class="btn-verify pass" title="Mark as passed" onclick="verifyCriterion('${taskNumber}', ${c.id}, true)">✓</button>
+                       <button class="btn-verify fail" title="Mark as failed" onclick="verifyCriterion('${taskNumber}', ${c.id}, false)">✗</button>
+                   </div>`
+                : '';
+            return `
+                <div class="criterion-verify-row" data-criterion-id="${c.id}" data-task-number="${taskNumber}">
+                    <div style="flex:1">
+                        <div class="criterion-text"><span style="opacity:0.5;font-size:10px;margin-right:4px">${i + 1}.</span>${escapeHtml(c.criterion)}</div>
+                        ${c.note ? `<div class="criterion-note">${escapeHtml(c.note)}</div>` : ''}
+                    </div>
+                    <span class="criterion-verdict ${verdictClass}">${verdictText}</span>
+                    ${verifyBtns}
+                </div>
+            `;
+        }).join('');
+    }    async function verifyCriterion(taskNumber, criterionId, passed) {
+        const note = passed ? 'Verified by user' : 'Marked as failed by user';
+        if (isVSCode) {
+            sendVscode({
+                command: 'requestVerifyCriterion',
+                taskNumber,
+                criterionId,
+                passed,
+                note,
+                verifiedBy: 'user'
+            });
+        } else {
+            try {
+                await apiPost(`/api/tasks/${taskNumber}/verify`, {
+                    criterionId,
+                    passed,
+                    note,
+                    verifiedBy: 'user',
+                });
+                // Update local criteria map
+                const criteria = criteriaMap[taskNumber] || [];
+                const c = criteria.find(c => c.id === criterionId);
+                if (c) {
+                    c.passed = passed ? 1 : 0;
+                    c.note = note;
+                }
+                renderBoard();
+                // Refresh modal if open
+                if (editingTaskNumber === taskNumber) {
+                    const updatedCriteria = criteriaMap[taskNumber] || [];
+                    renderCriteriaVerifyList(taskNumber, updatedCriteria, true);
+                }
+            } catch (err) {
+                showStandaloneError('Failed to verify criterion — ' + (err.message || 'unknown error'));
+            }
+        }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function formatTime(isoStr) {
+        if (!isoStr) { return ''; }
+        try {
+            const d = new Date(isoStr.replace(' ', 'T') + 'Z');
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                + ' ' + d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+        } catch { return isoStr; }
+    }    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeFormModal();
+            closeDeleteModal();
+        }
+    });
+
+    if (isVSCode) {
+        sendVscode({ command: 'requestLoadTasks' });
+        sendVscode({ command: 'requestLoadTemplates' });
+        startPolling();
+    } else {
+        loadTasksViaApi();
+        startPolling();
+    }
+</script>
+</body>
+</html>
