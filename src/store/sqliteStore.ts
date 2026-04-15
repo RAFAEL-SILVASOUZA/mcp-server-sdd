@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 type SqlJsModule = {
-  Database: new (data?: ArrayBuffer) => { exec(sql: string): any[]; export(): Uint8Array; close(): void; prepare(sql: string): { bind(params: any[]): void; step(): boolean; getAsArray(): any[]; free(): void } };
+  Database: new (data?: ArrayBuffer) => { exec(sql: string): any[]; export(): Uint8Array; close(): void; prepare(sql: string): { bind(params: any[]): void; step(): boolean; get(): any[]; getColumn(index: number): any; free(): void } };
 };
 
 export class SqliteStore {
@@ -294,7 +294,7 @@ export class SqliteStore {
 
     const results: any[][] = [];
     while (stmt.step()) {
-      const row = stmt.getAsArray();
+      const row = stmt.get();
       results.push(row);
     }
     stmt.free();

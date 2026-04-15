@@ -14,7 +14,9 @@ declare module 'sql.js' {
   export interface Statement {
     bind(bindings?: any[]): boolean;
     step(): boolean;
-    getAsArray(): any[];
+    get(): any[];
+    getColumn(index: number): any;
+    getAsObject(params?: Record<string, any>): Record<string, any>;
     free(): void;
   }
 
