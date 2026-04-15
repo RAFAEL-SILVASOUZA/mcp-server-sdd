@@ -37,7 +37,7 @@ Any tool called before `start_server` returns an error. There is no way to skip 
 ### Claude Code (recommended)
 
 ```bash
-claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd
+claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd@latest
 ```
 
 Then set the required environment variables in `.claude/settings.json`:
@@ -47,7 +47,7 @@ Then set the required environment variables in `.claude/settings.json`:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd@latest"],
       "env": {
         "WORKSPACE_PATH": "/path/to/your/project",
         "AUTOOPENPANEL": "true"
@@ -64,7 +64,7 @@ Then set the required environment variables in `.claude/settings.json`:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd@latest"],
       "env": {
         "WORKSPACE_PATH": "/path/to/your/project",
         "AUTOOPENPANEL": "true"
@@ -80,7 +80,7 @@ Then set the required environment variables in `.claude/settings.json`:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd@latest"],
       "env": {
         "WORKSPACE_PATH": "C:\\Users\\you\\projects\\my-app",
         "AUTOOPENPANEL": "true"
@@ -88,6 +88,33 @@ Then set the required environment variables in `.claude/settings.json`:
     }
   }
 }
+```
+
+> **Tip:** Always use `@latest` in the args. Without it, npx may serve a cached older version even after a new release.
+
+---
+
+## Updating
+
+npx caches packages locally. If the dashboard shows an update banner or you want to force the latest version:
+
+```bash
+# Clear npx cache and reinstall
+npm cache clean --force
+
+# Windows — delete the npx cache directory
+rmdir /s /q "%LocalAppData%\npm-cache\_npx"
+
+# Mac / Linux
+rm -rf ~/.npm/_npx
+```
+
+After clearing the cache, restart your MCP client (Claude Code, Claude Desktop, Cursor, etc.) and the latest version will be downloaded automatically.
+
+If you installed globally instead of via npx:
+
+```bash
+npm install -g @rafaelsouza-ai/mcp-server-sdd@latest
 ```
 
 ---
