@@ -7,12 +7,15 @@ import {
 import { sddTools } from "./tools/sddTools.js";
 import { serverTools } from "./tools/server.js";
 import { sddDocsTools } from "./tools/sddDocs.js";
+import { specTools } from "./tools/specTools.js";
+import { startDashboardServer } from "./server/index.js";
 
-type ToolRegistry = typeof serverTools & typeof sddDocsTools & typeof sddTools;
+type ToolRegistry = typeof serverTools & typeof sddDocsTools & typeof specTools & typeof sddTools;
 
 const tools: ToolRegistry = {
   ...serverTools,
   ...sddDocsTools,
+  ...specTools,
   ...sddTools
 };
 
@@ -66,11 +69,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 function getToolDescription(name: string): string {
   const descriptions: Record<string, string> = {
     // Server
-    start_server: "⚠️ MANDATORY FIRST TOOL — call this before ANY other SDD tool, no exceptions. Starts the dashboard server and automatically opens it in the browser. Safe to call multiple times — returns the existing URL if already running. Do NOT create tasks, read tasks, or do anything else before calling this.",
+    start_server: "Starts the dashboard server and opens it in the browser. MANDATORY as the first tool UNLESS the server was auto-started via AUTOOPENPANEL=true env var. Always safe to call — returns the existing URL if already running. Do NOT use any other SDD tool before the dashboard is active.",
     // Docs
     sdd_docs: "Returns the complete SDD methodology guide: workflow, rules, tool usage, valid status transitions and a well-formed create_task example. Call this whenever unsure about the correct process.",
+    // Spec tools
+    create_spec: "Create a new Specification (the strategic 'WHAT' and 'WHY'). A spec is the parent of all plans. Required: title. Optional: description, priority (0=low..3=critical), estimated_hours.",
+    read_spec:   "Read a spec by spec_number or spec_id. Pass with_hierarchy=true to include all plans and their tasks.",
+    list_specs:  "List all specs, optionally filtered by status (draft|approved|in-progress|done|cancelled). Returns progress counters.",
+    update_spec: "Update spec fields (title, description, status, priority). Use status='approved' to approve, 'done' when all plans complete.",
+    delete_spec: "Delete a spec and cascade-delete all its plans (tasks are unlinked, not deleted).",
+    create_plan: "Create a plan (tactical phase) inside a spec. Plans are ordered steps toward completing the spec. Required: spec_number, title.",
+    read_plan:   "Read a plan by plan_number or plan_id. Returns the plan with all its tasks (including logs and criteria).",
+    list_plans:  "List all plans for a given spec_number, ordered by sort_order.",
+    update_plan: "Update plan fields (title, description, sort_order, estimated_hours). Plan status is computed automatically from task statuses.",
+    delete_plan: "Delete a plan. Tasks linked to this plan are unlinked (plan_number set to null), NOT deleted.",
     // SDD Tools
-    create_task: "Create a new SDD task. ALL fields are required: title, description (what and why), inputs (context the agent needs), expected_outputs (what will be produced), acceptance_criteria (min 1 — how to verify it is done). Do NOT create without a complete spec.",
+    create_task: "Create a new SDD task. ALL fields are required: title, description (what and why), inputs (context the agent needs), expected_outputs (what will be produced), acceptance_criteria (min 1 — how to verify it is done). Optional: plan_number to link to a plan. Do NOT create without a complete spec.",
     read_task: "Read full details of a task by ID including logs and criteria",
     update_task: "Update task fields (title, description, status) or add log entry",
     list_tasks: "List all tasks, optionally filtered by status",
@@ -140,6 +154,16 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("MCP SDD Server running on stdio");
+
+  const autoOpen = process.env.AUTOOPENPANEL?.toLowerCase();
+  if (autoOpen === 'true' || autoOpen === '1') {
+    try {
+      const result = await startDashboardServer();
+      console.error(`Dashboard auto-started at ${result.url}`);
+    } catch (err) {
+      console.error('AUTOOPENPANEL: failed to start dashboard:', err);
+    }
+  }
 }
 
 main().catch(console.error);

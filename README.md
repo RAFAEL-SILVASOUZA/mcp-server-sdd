@@ -1,6 +1,6 @@
 # mcp-server-sdd
 
-> MCP server for **Spec-Driven Development (SDD)** — enforce a spec-first workflow on any AI agent with a real-time Kanban dashboard.
+> MCP server for **Spec-Driven Development (SDD)** — enforce a spec-first, three-level hierarchy on any AI agent with a real-time dashboard.
 
 No implementation line is written before a complete, approved spec exists. The agent executes tasks. The human approves, rejects, and verifies.
 
@@ -10,14 +10,25 @@ Works with **Claude Code**, **Claude Desktop**, **Cursor**, **Windsurf**, and an
 
 ## How it works
 
-The agent is forced to follow a strict order:
+SDD organizes work in three levels:
 
-1. **`start_server`** — starts the dashboard and opens it in the browser
+```
+Spec  →  Plan  →  Task
+(what & why)  (how, in phases)  (unit of execution)
+```
+
+- **Spec** — the strategic parent. Defines what will be built and why. Must be approved before work begins.
+- **Plan** — a tactical phase inside a spec. Groups related tasks into ordered steps. Status is computed automatically from its tasks.
+- **Task** — the unit of execution. Has full spec (inputs, outputs, acceptance criteria), logs, and a verification cycle.
+
+The agent follows a strict order:
+
+1. **`start_server`** — starts the dashboard and opens it in the browser (skip if `AUTOOPENPANEL=true`)
 2. **`sdd_docs`** — reads the full methodology guide
-3. **`create_task`** — creates a task with a complete spec (all fields required)
-4. Work through the cycle: `in-progress` → `pending-verification` → `done`
+3. **`create_spec`** → **`create_plan`** → **`create_task`** — build the hierarchy before any implementation
+4. Work through the task cycle: `in-progress` → `pending-verification` → `done`
 
-Any tool called before `start_server` returns an error with the required order. There is no way to skip steps.
+Any tool called before `start_server` returns an error. There is no way to skip steps.
 
 ---
 
@@ -29,24 +40,7 @@ Any tool called before `start_server` returns an error with the required order. 
 claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd
 ```
 
-### Manual — `.claude/settings.json` or `claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "sdd": {
-      "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"]
-    }
-  }
-}
-```
-
-### Configuring the database location
-
-The SQLite database (`sdd.db`) is stored in the directory defined by the `WORKSPACE_PATH` environment variable. If not set, it defaults to the current working directory (`process.cwd()`).
-
-Set `WORKSPACE_PATH` to keep the database alongside your project:
+Then set the required environment variables in `.claude/settings.json`:
 
 ```json
 {
@@ -55,14 +49,16 @@ Set `WORKSPACE_PATH` to keep the database alongside your project:
       "command": "npx",
       "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
       "env": {
-        "WORKSPACE_PATH": "/path/to/your/project"
+        "WORKSPACE_PATH": "/path/to/your/project",
+        "AUTOOPENPANEL": "true"
       }
     }
   }
 }
 ```
 
-**Windows example:**
+### Claude Desktop / Cursor / Windsurf — `claude_desktop_config.json`
+
 ```json
 {
   "mcpServers": {
@@ -70,44 +66,98 @@ Set `WORKSPACE_PATH` to keep the database alongside your project:
       "command": "npx",
       "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
       "env": {
-        "WORKSPACE_PATH": "C:\\Users\\you\\projects\\my-app"
+        "WORKSPACE_PATH": "/path/to/your/project",
+        "AUTOOPENPANEL": "true"
       }
     }
   }
 }
 ```
 
-> Without `WORKSPACE_PATH`, a new `sdd.db` is created wherever the process runs — usually a temporary npx cache directory. Set it explicitly so your tasks persist across sessions.
+**Windows paths:**
+```json
+{
+  "mcpServers": {
+    "sdd": {
+      "command": "npx",
+      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
+      "env": {
+        "WORKSPACE_PATH": "C:\\Users\\you\\projects\\my-app",
+        "AUTOOPENPANEL": "true"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Environment variables
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `WORKSPACE_PATH` | `string` | `process.cwd()` | Directory where `sdd.db` is stored. Set this to your project root so data persists across sessions. Without it, a new database is created in a temporary npx cache directory. |
+| `AUTOOPENPANEL` | `boolean` | `false` | If `true`, the dashboard server starts and the browser opens automatically as soon as the MCP connects — no need to call `start_server` first. If `false` or unset, the panel only opens when the agent calls `start_server`. |
+
+> Both variables are optional but **`WORKSPACE_PATH` is strongly recommended** — without it your tasks are lost every time npx clears its cache.
 
 ---
 
 ## Dashboard
 
-Once `start_server` is called, a real-time Kanban board opens automatically in the browser at `http://localhost:3000`.
+The dashboard is available at `http://localhost:3000` (auto-increments if the port is busy).
 
-- **Drag cards between columns** to update task status
-- **Double-click a card** to open the full edit modal
+- **Specs tab** — grid of spec cards with progress bars, edit/delete buttons, and inline plan accordion
+- **Plans accordion** — each plan expands to show a mini-Kanban board with its tasks
+- **All Tasks tab** — flat Kanban board across all tasks, with drag-and-drop status updates and bulk delete
 - All changes made by the agent are reflected in real time via WebSocket
 
 ---
 
 ## Available tools
 
+### Session
+
 | Tool | Description |
 |---|---|
-| `start_server` | **FIRST** — starts the dashboard and opens the browser |
-| `sdd_docs` | **SECOND** — returns the full methodology guide |
-| `create_task` | Creates a task with complete spec (all fields required) |
-| `read_task` | Reads full task details including logs and criteria |
-| `update_task` | Updates status or adds a log entry |
-| `list_tasks` | Lists all tasks, optionally filtered by status |
-| `delete_task` | Deletes a task (only allowed when status is `open`) |
-| `add_task_log` | Adds a progress log entry to a task |
-| `read_task_logs` | Reads the full history log of a task |
-| `add_acceptance_criterion` | Adds a new acceptance criterion to a task |
-| `list_criteria` | Lists all acceptance criteria for a task |
-| `submit_task_evidence` | Marks implementation complete, moves to `pending-verification` |
-| `verify_task_criterion` | Records pass/fail verdict for a criterion |
+| `start_server` | Starts the dashboard and opens the browser. Not needed if `AUTOOPENPANEL=true` — but still safe to call |
+| `sdd_docs` | Returns the full methodology guide |
+
+### Specs
+
+| Tool | Description |
+|---|---|
+| `create_spec` | Create a spec (strategic "what & why"). Required: `title`. Optional: `description`, `priority`, `estimated_hours` |
+| `read_spec` | Read a spec by `spec_number`. Pass `with_hierarchy=true` to include plans and tasks |
+| `list_specs` | List all specs, optionally filtered by status. Returns progress counters |
+| `update_spec` | Update spec fields or status (`draft` → `approved` → `in-progress` → `done` / `cancelled`) |
+| `delete_spec` | Delete a spec and cascade-delete all its plans and linked tasks |
+
+### Plans
+
+| Tool | Description |
+|---|---|
+| `create_plan` | Create a plan (tactical phase) inside a spec. Required: `spec_number`, `title` |
+| `read_plan` | Read a plan by `plan_number`. Returns the plan with all its tasks |
+| `list_plans` | List all plans for a given `spec_number`, ordered by `sort_order` |
+| `update_plan` | Update plan fields (`title`, `description`, `sort_order`, `estimated_hours`). Status is computed automatically |
+| `delete_plan` | Delete a plan. Its tasks are unlinked (not deleted) |
+
+### Tasks
+
+| Tool | Description |
+|---|---|
+| `create_task` | Create a task with complete spec. Required: `title`, `description`, `inputs`, `expected_outputs`, `acceptance_criteria`. Optional: `plan_number` to link to a plan |
+| `read_task` | Read full task details including logs and criteria |
+| `update_task` | Update status or add a log entry |
+| `list_tasks` | List all tasks, optionally filtered by status |
+| `delete_task` | Delete a task (only allowed when status is `open`) |
+| `add_task_log` | Add a progress log entry to a task |
+| `read_task_logs` | Read the full history log of a task |
+| `add_acceptance_criterion` | Add a new acceptance criterion to a task |
+| `list_criteria` | List all acceptance criteria for a task |
+| `submit_task_evidence` | Mark implementation complete, moves task to `pending-verification` |
+| `verify_task_criterion` | Record pass/fail verdict for an acceptance criterion |
 
 ---
 
@@ -122,12 +172,38 @@ pending-verification → error         (human marks as error)
 any → open                           (reset, with justification in the log)
 ```
 
+## Plan status (computed)
+
+Plan status is derived automatically from its tasks — it is never set directly:
+
+| Plan status | Condition |
+|---|---|
+| `pending` | All tasks are `open` |
+| `in-progress` | At least one task is `in-progress` or `pending-verification` |
+| `done` | All tasks are `done` |
+| `blocked` | At least one task is `error` |
+
+## Spec status (manual)
+
+Spec status follows the human-controlled approval flow:
+
+```
+draft → approved → in-progress → done
+                              ↘ cancelled
+```
+
+---
+
+## Cascade deletion
+
+Deleting a spec removes all its plans and all tasks linked to those plans.
+Deleting a plan unlinks its tasks (sets `plan_number` to null) — tasks are preserved.
+
 ---
 
 ## Rules enforced by the server
 
-- Every tool call is blocked until `start_server` has been called
-- `sdd_docs` is blocked until `start_server` has been called
+- Every tool call is blocked until `start_server` has been called (or `AUTOOPENPANEL=true` was set)
 - `delete_task` only works on tasks with status `open`
 
 ---
@@ -135,7 +211,6 @@ any → open                           (reset, with justification in the log)
 ## Requirements
 
 - Node.js 18+
-- The dashboard opens on `localhost:3000` (auto-increments if the port is busy)
 
 ---
 

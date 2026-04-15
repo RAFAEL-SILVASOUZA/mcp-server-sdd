@@ -961,6 +961,403 @@
             color: var(--vscode-descriptionForeground, #888);
             margin-left: 4px;
         }
+
+        /* ── Tabs ── */
+        .sdd-tabs {
+            display: flex;
+            gap: 2px;
+            border-bottom: 1px solid var(--vscode-panel-border, #333);
+            margin-bottom: 14px;
+        }
+
+        .sdd-tab {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--vscode-descriptionForeground, #888);
+            padding: 6px 14px;
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            margin-bottom: -1px;
+        }
+        .sdd-tab:hover { color: var(--vscode-foreground); }
+        .sdd-tab.active {
+            color: var(--vscode-foreground);
+            border-bottom-color: var(--vscode-button-background, #0e639c);
+            font-weight: 600;
+        }
+
+        /* ── Breadcrumb ── */
+        .sdd-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            font-size: 12px;
+        }
+        .breadcrumb-back {
+            background: none;
+            border: 1px solid var(--vscode-panel-border, #555);
+            color: var(--vscode-foreground);
+            padding: 3px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: inherit;
+        }
+        .breadcrumb-back:hover { background: var(--vscode-toolbar-hoverBackground); }
+        .breadcrumb-sep { opacity: 0.4; }
+        .breadcrumb-current { font-weight: 600; opacity: 0.85; }
+
+        /* ── Spec view ── */
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 12px;
+        }
+
+        .spec-card {
+            background: var(--vscode-sideBar-background, rgba(255,255,255,0.03));
+            border: 1px solid var(--vscode-panel-border, #333);
+            border-radius: 6px;
+            padding: 14px;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .spec-card:hover {
+            border-color: var(--vscode-focusBorder, #007acc);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .spec-card-actions {
+            opacity: 0;
+            transition: opacity 0.15s;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .spec-card:hover .spec-card-actions { opacity: 1; }
+
+        .spec-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .spec-number {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-family: monospace;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .spec-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .spec-desc {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            line-height: 1.35;
+            margin-bottom: 10px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .spec-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+        }
+        .status-badge.draft         { background: rgba(150,150,150,0.15); color: #aaa; }
+        .status-badge.approved      { background: rgba(108,158,248,0.18); color: #6c9ef8; }
+        .status-badge.in-progress   { background: rgba(240,160,64,0.18); color: #f0a040; }
+        .status-badge.done          { background: rgba(76,175,80,0.18); color: #4caf50; }
+        .status-badge.cancelled     { background: rgba(229,57,53,0.15); color: #e57373; }
+
+        .priority-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .priority-badge.p0 { background: rgba(150,150,150,0.12); color: #888; }
+        .priority-badge.p1 { background: rgba(108,158,248,0.12); color: #6c9ef8; }
+        .priority-badge.p2 { background: rgba(240,160,64,0.15); color: #f0a040; }
+        .priority-badge.p3 { background: rgba(229,57,53,0.15); color: #e57373; }
+
+        .spec-progress {
+            margin-top: 6px;
+        }
+        .spec-progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+        .spec-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        .spec-progress-text {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .specs-empty {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--vscode-descriptionForeground, #888);
+        }
+        .specs-empty-title { font-size: 14px; margin-bottom: 8px; opacity: 0.7; }
+        .specs-empty-hint  { font-size: 12px; opacity: 0.5; }
+
+        /* ── Plan view ── */
+        .plans-view-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .plans-view-title {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .plans-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .plan-item {
+            background: var(--vscode-sideBar-background, rgba(255,255,255,0.03));
+            border: 1px solid var(--vscode-panel-border, #333);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .plan-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: background 0.12s;
+            user-select: none;
+        }
+        .plan-header:hover { background: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04)); }
+
+        .plan-expand-icon {
+            font-size: 10px;
+            opacity: 0.5;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+        .plan-item.expanded .plan-expand-icon { transform: rotate(90deg); }
+
+        .plan-number {
+            font-size: 10px;
+            font-family: monospace;
+            color: var(--vscode-descriptionForeground, #888);
+            flex-shrink: 0;
+        }
+
+        .plan-info { flex: 1; min-width: 0; }
+        .plan-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--vscode-foreground);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .plan-desc {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground, #888);
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .plan-status-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+        .plan-status-badge.pending     { background: rgba(150,150,150,0.12); color: #888; }
+        .plan-status-badge.in-progress { background: rgba(240,160,64,0.18); color: #f0a040; }
+        .plan-status-badge.done        { background: rgba(76,175,80,0.18); color: #4caf50; }
+        .plan-status-badge.blocked     { background: rgba(229,57,53,0.18); color: #e57373; }
+
+        .plan-task-count {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            flex-shrink: 0;
+        }
+
+        .plan-mini-progress {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            width: 80px;
+        }
+        .plan-mini-bar {
+            flex: 1;
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .plan-mini-fill {
+            height: 100%;
+            background: #4caf50;
+            border-radius: 2px;
+        }
+
+        .plan-actions {
+            display: flex;
+            gap: 2px;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .plan-header:hover .plan-actions { opacity: 1; }
+
+        /* Plan body — tasks inside a plan */
+        .plan-body {
+            display: none;
+            border-top: 1px solid var(--vscode-panel-border, #333);
+            padding: 12px;
+            background: rgba(0,0,0,0.08);
+        }
+        .plan-item.expanded .plan-body { display: block; }
+
+        .plan-body-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .plan-body-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.5;
+        }
+
+        /* Mini kanban inside plan */
+        .mini-kanban {
+            display: flex;
+            gap: 8px;
+            min-height: 60px;
+        }
+        .mini-col {
+            flex: 1;
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border, #333);
+            border-radius: 4px;
+            min-width: 0;
+        }
+        .mini-col-header {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 5px 8px 4px;
+            border-bottom: 1px solid var(--vscode-panel-border, #333);
+            opacity: 0.7;
+        }
+        .mini-col-cards {
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-height: 40px;
+        }
+        .mini-task-card {
+            background: var(--vscode-sideBar-background, rgba(255,255,255,0.03));
+            border: 1px solid var(--vscode-widget-border, #3a3a3a);
+            border-radius: 3px;
+            padding: 4px 7px;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1.3;
+            transition: border-color 0.1s;
+        }
+        .mini-task-card:hover { border-color: var(--vscode-focusBorder, #007acc); }
+        .mini-task-number {
+            font-size: 9px;
+            font-family: monospace;
+            color: var(--vscode-descriptionForeground, #888);
+            margin-right: 4px;
+        }
+
+        .plans-empty {
+            text-align: center;
+            padding: 32px 20px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        /* btn-new-* shared style */
+        .btn-new {
+            background: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: inherit;
+        }
+        .btn-new:hover { background: var(--vscode-button-hoverBackground); }
+
+        /* Modal for spec/plan creation */
+        .modal-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            opacity: 0.5;
+            margin-bottom: 10px;
+            margin-top: 4px;
+        }
+
+        /* View fade animation */
+        .sdd-view { animation: viewFadeIn 0.15s ease; }
+        @keyframes viewFadeIn {
+            from { opacity: 0; transform: translateY(3px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -970,25 +1367,57 @@
     <div class="sdd-title">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.8">
             <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-        </svg>        Spec-Driven Development Backlog
+        </svg>        Spec-Driven Development
         <span class="sdd-badge" id="task-count">0</span>
     </div>
-    <input
-        type="text"
-        id="task-search"
-        class="sdd-search"
-        placeholder="Search tasks..."
-        autocomplete="off"
-        title="Search across all task fields"
-    />  
     <div class="header-actions">
         <span class="live-dot" title="Real-time updates active"></span>
+        <button class="btn-new" id="btn-new-spec" onclick="openCreateSpecModal()" title="New Spec">+ New Spec</button>
+        <button class="btn-new" id="btn-new-plan" onclick="openCreatePlanModal()" title="New Plan" style="display:none">+ New Plan</button>
         <button class="btn-delete-selected" id="btn-delete-selected">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             Delete Selected
         </button>
     </div>
 </div>
+
+<!-- ── TABS ── -->
+<div class="sdd-tabs">
+    <button class="sdd-tab active" id="tab-specs" onclick="switchTab('specs')">Specs</button>
+    <button class="sdd-tab" id="tab-tasks" onclick="switchTab('tasks')">All Tasks</button>
+</div>
+
+<!-- ── VIEW: SPECS ── -->
+<div class="sdd-view" id="view-specs">
+    <div class="specs-grid" id="specs-grid"></div>
+</div>
+
+<!-- ── VIEW: PLANS (for a selected spec) ── -->
+<div class="sdd-view" id="view-plans" style="display:none">
+    <div class="sdd-breadcrumb">
+        <button class="breadcrumb-back" onclick="navigateToSpecs()">← Specs</button>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current" id="breadcrumb-spec-title"></span>
+    </div>
+    <div class="plans-view-header">
+        <div class="plans-view-title" id="plans-view-title"></div>
+    </div>
+    <div class="plans-list" id="plans-list"></div>
+</div>
+
+<!-- ── VIEW: ALL TASKS ── -->
+<div class="sdd-view" id="view-tasks" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input
+            type="text"
+            id="task-search"
+            class="sdd-search"
+            placeholder="Search tasks..."
+            autocomplete="off"
+            title="Search across all task fields"
+        />
+        <button class="btn-new" onclick="openCreateModal()">+ New Task</button>
+    </div>
 
 <div class="standalone-error" id="standalone-error">
     <svg class="error-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
@@ -1060,18 +1489,80 @@
 
 </div>
 
+</div><!-- end view-tasks -->
+
+<!-- ── MODAL: CREATE SPEC ── -->
+<div class="modal-backdrop" id="modal-spec">
+    <div class="modal">
+        <h3 id="modal-spec-title">New Specification</h3>
+
+        <div class="form-group">
+            <label for="spec-input-title">Title <span style="color:var(--vscode-errorForeground)">*</span></label>
+            <input type="text" id="spec-input-title" placeholder="E.g. Implement JWT authentication" autocomplete="off" />
+            <div class="form-error" id="spec-error-title">Title is required.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="spec-input-description">Description</label>
+            <textarea id="spec-input-description" rows="3" placeholder="Context, goals, motivations..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="spec-input-priority">Priority</label>
+            <select id="spec-input-priority">
+                <option value="0">0 — Low</option>
+                <option value="1" selected>1 — Medium</option>
+                <option value="2">2 — High</option>
+                <option value="3">3 — Critical</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="spec-group-status" style="display:none">
+            <label for="spec-input-status">Status</label>
+            <select id="spec-input-status">
+                <option value="draft">Draft</option>
+                <option value="approved">Approved</option>
+                <option value="in-progress">In Progress</option>
+                <option value="done">Done</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" id="modal-spec-cancel">Cancel</button>
+            <button class="btn-primary" id="modal-spec-confirm">Create Spec</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── MODAL: CREATE PLAN ── -->
+<div class="modal-backdrop" id="modal-plan">
+    <div class="modal">
+        <h3 id="modal-plan-title">New Plan</h3>
+
+        <div class="form-group">
+            <label for="plan-input-title">Title <span style="color:var(--vscode-errorForeground)">*</span></label>
+            <input type="text" id="plan-input-title" placeholder="E.g. Backend API" autocomplete="off" />
+            <div class="form-error" id="plan-error-title">Title is required.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="plan-input-description">Description</label>
+            <textarea id="plan-input-description" rows="2" placeholder="What does this plan deliver?"></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" id="modal-plan-cancel">Cancel</button>
+            <button class="btn-primary" id="modal-plan-confirm">Create Plan</button>
+        </div>
+    </div>
+</div>
+
 <!-- ── MODAL: CREATE / EDIT ── -->
 <div class="modal-backdrop" id="modal-form">
     <div class="modal">
         <h3 id="modal-form-title">New Task</h3>
 
-        <!-- Template selector (create only) -->
-        <div class="form-group" id="group-template">
-            <label for="input-template">Start from template</label>
-            <select id="input-template">
-                <option value="">— No template —</option>
-            </select>
-        </div>
 
         <!-- Title -->
         <div class="form-group">
@@ -1255,7 +1746,6 @@
     // ── State ──────────────────────────────────────────────────────────────────    let tasks = [];
     let logsMap = {};
     let criteriaMap = {};   // task_number → TaskCriteria[]
-    let templates = [];     // SpecTemplate[]
     let editingTaskNumber = null;
     let deletingTaskNumber = null;
     let expandedCards = new Set();
@@ -1416,23 +1906,21 @@
         try {
             const data = await apiGet('/api/tasks');
             tasks = data || [];
-            // logsMap and criteriaMap come embedded in the task objects
             for (const t of tasks) {
-                if (t.logs) { logsMap[t.task_number] = t.logs; }
-                if (t.criteria) { criteriaMap[t.task_number] = t.criteria; }
+                if (t.logs)     logsMap[t.task_number]     = t.logs;
+                if (t.criteria) criteriaMap[t.task_number] = t.criteria;
             }
             renderBoard();
+            // Refresh any open plan mini-kanbans
+            for (const planNumber of expandedPlans) {
+                loadPlanTasks(planNumber);
+            }
             hideStandaloneError();
-            offlineMode = false;        } catch (err) {
+            offlineMode = false;
+        } catch (err) {
             showStandaloneError('Server unreachable — ' + (err.message || 'connection failed'));
             offlineMode = true;
         }
-    }
-
-    async function loadTemplatesViaApi() {
-        try {
-            // Templates endpoint not yet in API — skip gracefully
-        } catch { /* ignore */ }
     }
 
     async function refreshSingleTaskApi(taskNumber) {
@@ -1441,9 +1929,13 @@
             if (task) {
                 const idx = tasks.findIndex(t => t.task_number === task.task_number);
                 if (idx >= 0) { tasks[idx] = task; } else { tasks.push(task); }
-                if (task.logs) { logsMap[task.task_number] = task.logs; }
-                if (task.criteria) { criteriaMap[task.task_number] = task.criteria; }
+                if (task.logs)     logsMap[task.task_number]     = task.logs;
+                if (task.criteria) criteriaMap[task.task_number] = task.criteria;
                 tasks.sort((a, b) => a.sort_order - b.sort_order);
+                // Refresh mini-kanban of the plan this task belongs to
+                if (task.plan_number && expandedPlans.has(task.plan_number)) {
+                    await loadPlanTasks(task.plan_number);
+                }
             }
             renderBoard();
         } catch { /* ignore */ }
@@ -1506,11 +1998,6 @@
                 if (msg.logsMap) { logsMap = msg.logsMap; }
                 if (msg.criteriaMap) { criteriaMap = msg.criteriaMap; }
                 renderBoard();
-                break;
-
-            case 'loadTemplates':
-                templates = msg.templates || [];
-                populateTemplateSelector();
                 break;
 
             case 'taskCreated':
@@ -1838,42 +2325,6 @@
         });
     });
 
-    // ── Templates ─────────────────────────────────────────────────────────────
-
-    function populateTemplateSelector() {
-        const sel = document.getElementById('input-template');
-        const current = sel.value;
-        sel.innerHTML = '<option value="">— No template —</option>';
-        for (const t of templates) {
-            const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.textContent = t.name;
-            if (t.description) { opt.title = t.description; }
-            sel.appendChild(opt);
-        }
-        sel.value = current || '';
-    }
-
-    document.getElementById('input-template').addEventListener('change', (e) => {
-        const templateId = parseInt(e.target.value);
-        if (!templateId) { return; }
-        const template = templates.find(t => t.id === templateId);
-        if (!template) { return; }
-
-        if (template.default_inputs) {
-            document.getElementById('input-inputs').value = template.default_inputs;
-        }
-        if (template.default_outputs) {
-            document.getElementById('input-expected-outputs').value = template.default_outputs;
-        }
-        if (template.default_criteria) {
-            try {
-                const list = JSON.parse(template.default_criteria);
-                setCriteriaList(list);
-            } catch { /* malformed JSON — ignore */ }
-        }
-    });
-
     // ── Criteria list management ───────────────────────────────────────────────
 
     function setCriteriaList(criteriaArray) {
@@ -1962,8 +2413,6 @@
         document.getElementById('input-description').value = '';
         document.getElementById('input-inputs').value = '';
         document.getElementById('input-expected-outputs').value = '';
-        document.getElementById('input-template').value = '';
-        document.getElementById('group-template').style.display = 'block';
         document.getElementById('group-status').style.display = 'none';
         document.getElementById('error-title').classList.remove('visible');
         document.getElementById('spec-lock-notice').style.display = 'none';
@@ -1978,6 +2427,7 @@
 
         populateDependsOn(null);
         document.getElementById('input-depends-on').value = '';
+        document.getElementById('modal-form').dataset.planNumber = '';
         document.getElementById('modal-form').classList.add('open');
         setTimeout(() => document.getElementById('input-title').focus(), 50);
     }
@@ -1995,7 +2445,6 @@
         document.getElementById('input-inputs').value = task.inputs || '';
         document.getElementById('input-expected-outputs').value = task.expected_outputs || '';
         document.getElementById('input-status').value = task.status;
-        document.getElementById('group-template').style.display = 'none';
         document.getElementById('group-status').style.display = 'block';
         document.getElementById('error-title').classList.remove('visible');
 
@@ -2150,18 +2599,27 @@
             } else {
                 // Standalone: call REST API
                 try {
-                    await apiPatch(`/api/tasks/${editingTaskNumber}`, {
+                    const updated = await apiPatch(`/api/tasks/${editingTaskNumber}`, {
                         ...updates,
                         criteria: isLocked ? undefined : criteria,
                     });
-                    await refreshSingleTaskApi(editingTaskNumber);
-                    if (editingTaskNumber) { refreshModalLogs(editingTaskNumber); }
+                    // Update local state directly from the response
+                    if (updated) {
+                        const idx = tasks.findIndex(t => t.task_number === updated.task_number);
+                        if (idx >= 0) { tasks[idx] = updated; } else { tasks.push(updated); }
+                        if (updated.logs)     logsMap[updated.task_number]     = updated.logs;
+                        if (updated.criteria) criteriaMap[updated.task_number] = updated.criteria;
+                        renderBoard();
+                        if (updated.plan_number && expandedPlans.has(updated.plan_number)) {
+                            await loadPlanTasks(updated.plan_number);
+                        }
+                        refreshModalLogs(updated.task_number);
+                    }
                 } catch (err) {
                     showStandaloneError('Failed to update task — ' + (err.message || 'unknown error'));
                 }
             }
         } else {
-            const templateId = parseInt(document.getElementById('input-template').value) || null;
             if (isVSCode) {
                 sendVscode({
                     command: 'requestCreateTask',
@@ -2170,12 +2628,12 @@
                     dependsOn,
                     inputs,
                     expectedOutputs,
-                    criteria,
-                    templateId
+                    criteria
                 });
             } else {
                 // Standalone: call REST API
                 try {
+                    const planNum = parseInt(document.getElementById('modal-form').dataset.planNumber) || null;
                     const created = await apiPost('/api/tasks', {
                         title,
                         description,
@@ -2183,15 +2641,26 @@
                         inputs,
                         expected_outputs: expectedOutputs,
                         criteria,
+                        ...(planNum ? { plan_number: planNum } : {}),
                     });
                     if (created.task_number) {
-                        await loadTasksViaApi();
+                        // Update global tasks list
+                        tasks.push(created);
+                        if (created.logs)     logsMap[created.task_number]     = created.logs;
+                        if (created.criteria) criteriaMap[created.task_number] = created.criteria;
+                        renderBoard();
+                        // Always refresh the plan mini-kanban after creating a linked task
+                        if (planNum) {
+                            expandedPlans.add(planNum); // keep it expanded
+                            await loadPlanTasks(planNum);
+                        }
                     }
                 } catch (err) {
                     showStandaloneError('Failed to create task — ' + (err.message || 'unknown error'));
                 }
             }
         }
+        document.getElementById('modal-form').dataset.planNumber = '';
         closeFormModal();
     });
 
@@ -2214,7 +2683,10 @@
     function closeDeleteModal() {
         document.getElementById('modal-delete').classList.remove('open');
         deletingTaskNumber = null;
-        document.getElementById('modal-delete-confirm').textContent = 'Delete';
+        const btn = document.getElementById('modal-delete-confirm');
+        btn.textContent = 'Delete';
+        btn.dataset.deleteType = '';
+        btn.dataset.deleteId   = '';
     }    document.getElementById('modal-delete-cancel').addEventListener('click', closeDeleteModal);
     document.getElementById('modal-delete').addEventListener('click', (e) => {
         if (e.target === document.getElementById('modal-delete')) { closeDeleteModal(); }
@@ -2232,7 +2704,41 @@
     });
 
     document.getElementById('modal-delete-confirm').addEventListener('click', async () => {
-        const isBulkDelete = document.getElementById('modal-delete-confirm').textContent !== 'Delete';
+        const confirmBtn = document.getElementById('modal-delete-confirm');
+        const deleteType = confirmBtn.dataset.deleteType;
+
+        // Spec delete
+        if (deleteType === 'spec') {
+            const specNumber = parseInt(confirmBtn.dataset.deleteId);
+            confirmBtn.dataset.deleteType = '';
+            confirmBtn.dataset.deleteId   = '';
+            closeDeleteModal();
+            try {
+                await apiDelete(`/api/specs/${specNumber}`);
+                await loadSpecs();
+            } catch (err) {
+                showStandaloneError('Failed to delete spec — ' + (err.message || 'unknown'));
+            }
+            return;
+        }
+
+        // Plan delete
+        if (deleteType === 'plan') {
+            const planNumber = parseInt(confirmBtn.dataset.deleteId);
+            confirmBtn.dataset.deleteType = '';
+            confirmBtn.dataset.deleteId   = '';
+            closeDeleteModal();
+            try {
+                await apiDelete(`/api/plans/${planNumber}`);
+                expandedPlans.delete(planNumber);
+                await loadPlans(currentSpecNumber);
+            } catch (err) {
+                showStandaloneError('Failed to delete plan — ' + (err.message || 'unknown'));
+            }
+            return;
+        }
+
+        const isBulkDelete = confirmBtn.textContent !== 'Delete';
         const taskToDelete = deletingTaskNumber; // Salva antes de fechar o modal
         closeDeleteModal();
 
@@ -2243,14 +2749,17 @@
                 if (tasks.some(t => t.task_number === tn && matchesSearch(t))) {
                     toDelete.push(tn);
                 }
-            }            for (const tn of toDelete) {
+            }
+            const affectedPlans = new Set();
+            for (const tn of toDelete) {
                 try {
                     if (isVSCode) {
                         sendVscode({ command: 'requestDeleteTask', taskNumber: tn });
-                        // Task será removida via evento taskDeleted
                     } else {
+                        const t = tasks.find(x => x.task_number === tn);
+                        if (t?.plan_number) affectedPlans.add(t.plan_number);
                         await apiDelete(`/api/tasks/${tn}`);
-                        tasks = tasks.filter(t => t.task_number !== tn);
+                        tasks = tasks.filter(x => x.task_number !== tn);
                         delete logsMap[tn];
                         delete criteriaMap[tn];
                     }
@@ -2262,16 +2771,26 @@
             selectedTasks.clear();
             updateDeleteButton();
             renderBoard();
+            for (const planNum of affectedPlans) {
+                if (expandedPlans.has(planNum)) await loadPlanTasks(planNum);
+            }
         } else if (taskToDelete) {
             // Single delete
             try {
                 if (isVSCode) {
                     sendVscode({ command: 'requestDeleteTask', taskNumber: taskToDelete });
                 } else {
+                    const deletedTask = tasks.find(t => t.task_number === taskToDelete);
+                    const planNum     = deletedTask?.plan_number;
                     await apiDelete(`/api/tasks/${taskToDelete}`);
                     tasks = tasks.filter(t => t.task_number !== taskToDelete);
+                    delete logsMap[taskToDelete];
+                    delete criteriaMap[taskToDelete];
+                    renderBoard();
+                    if (planNum && expandedPlans.has(planNum)) {
+                        await loadPlanTasks(planNum);
+                    }
                 }
-                renderBoard();
             } catch (err) {
                 showStandaloneError('Failed to delete task — ' + (err.message || 'unknown error'));
             }
@@ -2369,16 +2888,494 @@
         if (e.key === 'Escape') {
             closeFormModal();
             closeDeleteModal();
+            closeSpecModal();
+            closePlanModal();
         }
     });
 
+    // ── Spec / Plan state ─────────────────────────────────────────────────────
+    let specs = [];
+    let currentSpecNumber = null;
+    let currentPlans = [];
+    let expandedPlans = new Set();
+    let editingSpecNumber = null;
+    let editingPlanNumber = null;
+    let currentTab = 'specs';
+
+    // ── View switching ────────────────────────────────────────────────────────
+    function switchTab(tab) {
+        currentTab = tab;
+        document.getElementById('tab-specs').classList.toggle('active', tab === 'specs');
+        document.getElementById('tab-tasks').classList.toggle('active', tab === 'tasks');
+
+        document.getElementById('view-specs').style.display  = (tab === 'specs' && currentSpecNumber === null) ? 'block' : 'none';
+        document.getElementById('view-plans').style.display  = (tab === 'specs' && currentSpecNumber !== null) ? 'block' : 'none';
+        document.getElementById('view-tasks').style.display  = tab === 'tasks' ? 'block' : 'none';
+
+        document.getElementById('btn-new-spec').style.display = (tab === 'specs' && currentSpecNumber === null) ? '' : 'none';
+        document.getElementById('btn-new-plan').style.display = (tab === 'specs' && currentSpecNumber !== null) ? '' : 'none';
+        document.getElementById('btn-delete-selected').classList.remove('visible');
+
+        if (tab === 'specs') {
+            if (currentSpecNumber === null) {
+                loadSpecs();
+            } else {
+                loadPlans(currentSpecNumber);
+            }
+        }
+
+        // Update badge: task count in tasks tab, spec count in specs tab
+        updateBadge();
+    }
+
+    function updateBadge() {
+        const badge = document.getElementById('task-count');
+        if (currentTab === 'tasks') {
+            badge.textContent = tasks.filter(matchesSearch).length;
+        } else if (currentSpecNumber !== null) {
+            badge.textContent = currentPlans.length + ' plan' + (currentPlans.length !== 1 ? 's' : '');
+        } else {
+            badge.textContent = specs.length;
+        }
+    }
+
+    function navigateToSpec(specNumber) {
+        currentSpecNumber = specNumber;
+        document.getElementById('view-specs').style.display = 'none';
+        document.getElementById('view-plans').style.display = 'block';
+        document.getElementById('btn-new-spec').style.display = 'none';
+        document.getElementById('btn-new-plan').style.display = '';
+        loadPlans(specNumber);
+    }
+
+    function navigateToSpecs() {
+        currentSpecNumber = null;
+        document.getElementById('view-plans').style.display = 'none';
+        document.getElementById('view-specs').style.display = 'block';
+        document.getElementById('btn-new-plan').style.display = 'none';
+        document.getElementById('btn-new-spec').style.display = '';
+        loadSpecs();
+    }
+
+    // ── Load specs ────────────────────────────────────────────────────────────
+    async function loadSpecs() {
+        try {
+            specs = await apiGet('/api/specs');
+            renderSpecsView();
+            updateBadge();
+        } catch (e) {
+            showStandaloneError('Failed to load specs — ' + (e.message || 'unknown'));
+        }
+    }
+
+    function renderSpecsView() {
+        const grid = document.getElementById('specs-grid');
+        if (!specs || specs.length === 0) {
+            grid.innerHTML = `
+                <div class="specs-empty" style="grid-column:1/-1">
+                    <div class="specs-empty-title">No specs yet</div>
+                    <div class="specs-empty-hint">Create your first spec to start planning your work</div>
+                </div>`;
+            return;
+        }
+        grid.innerHTML = '';
+        for (const spec of specs) {
+            grid.appendChild(buildSpecCard(spec));
+        }
+    }
+
+    function buildSpecCard(spec) {
+        const p = spec.progress || { total_plans: 0, done_plans: 0, total_tasks: 0, done_tasks: 0 };
+        const pct = p.total_tasks > 0 ? Math.round((p.done_tasks / p.total_tasks) * 100) : 0;
+        const priorityLabels = ['Low', 'Medium', 'High', 'Critical'];
+        const priorityClass  = ['p0', 'p1', 'p2', 'p3'];
+
+        const card = document.createElement('div');
+        card.className = 'spec-card';
+        card.dataset.specNumber = spec.spec_number;
+        card.innerHTML = `
+            <div class="spec-card-header">
+                <span class="spec-number">SPEC-${String(spec.spec_number).padStart(3, '0')}</span>
+                <span class="spec-title">${escapeHtml(spec.title)}</span>
+                <div class="card-actions spec-card-actions">
+                    <button class="icon-btn spec-edit-btn" title="Edit spec">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                    <button class="icon-btn delete-btn spec-delete-btn" title="Delete spec">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                </div>
+            </div>
+            ${spec.description ? `<div class="spec-desc">${escapeHtml(spec.description)}</div>` : ''}
+            <div class="spec-meta">
+                <span class="status-badge ${spec.status}">${spec.status}</span>
+                <span class="priority-badge ${priorityClass[spec.priority || 1]}">${priorityLabels[spec.priority || 1]}</span>
+            </div>
+            <div class="spec-progress">
+                <div class="spec-progress-bar">
+                    <div class="spec-progress-fill" style="width:${pct}%"></div>
+                </div>
+                <div class="spec-progress-text">
+                    <span>${p.done_tasks}/${p.total_tasks} tasks done</span>
+                    <span>${p.total_plans} plan${p.total_plans !== 1 ? 's' : ''}</span>
+                </div>
+            </div>
+        `;
+        card.querySelector('.spec-edit-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditSpecModal(spec);
+        });
+        card.querySelector('.spec-delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeleteSpecModal(spec);
+        });
+        card.addEventListener('click', () => navigateToSpec(spec.spec_number));
+        return card;
+    }
+
+    // ── Load plans ────────────────────────────────────────────────────────────
+    async function loadPlans(specNumber) {
+        try {
+            const spec = specs.find(s => s.spec_number === specNumber) || await apiGet(`/api/specs/${specNumber}`);
+            document.getElementById('breadcrumb-spec-title').textContent = spec.title;
+            document.getElementById('plans-view-title').textContent = `SPEC-${String(specNumber).padStart(3, '0')}: ${spec.title}`;
+
+            currentPlans = await apiGet(`/api/specs/${specNumber}/plans`);
+            renderPlansView();
+            updateBadge();
+        } catch (e) {
+            showStandaloneError('Failed to load plans — ' + (e.message || 'unknown'));
+        }
+    }
+
+    function renderPlansView() {
+        const list = document.getElementById('plans-list');
+        if (!currentPlans || currentPlans.length === 0) {
+            list.innerHTML = `<div class="plans-empty">No plans yet. Create the first plan to break down this spec into actionable steps.</div>`;
+            return;
+        }
+        list.innerHTML = '';
+        for (const plan of currentPlans) {
+            list.appendChild(buildPlanItem(plan));
+        }
+    }
+
+    function buildPlanItem(plan) {
+        const isExpanded = expandedPlans.has(plan.plan_number);
+        const item = document.createElement('div');
+        item.className = 'plan-item' + (isExpanded ? ' expanded' : '');
+        item.dataset.planNumber = plan.plan_number;
+
+        item.innerHTML = `
+            <div class="plan-header">
+                <span class="plan-expand-icon">▶</span>
+                <span class="plan-number">PLAN-${String(plan.plan_number).padStart(3, '0')}</span>
+                <div class="plan-info">
+                    <div class="plan-title">${escapeHtml(plan.title)}</div>
+                    ${plan.description ? `<div class="plan-desc">${escapeHtml(plan.description)}</div>` : ''}
+                </div>
+                <span class="plan-status-badge ${plan.status}">${plan.status}</span>
+                <div class="plan-actions">
+                    <button class="icon-btn edit-plan-btn" title="Edit plan" data-plan-number="${plan.plan_number}">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                    <button class="icon-btn delete-btn delete-plan-btn" title="Delete plan" data-plan-number="${plan.plan_number}">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="plan-body">
+                <div class="plan-body-toolbar">
+                    <span class="plan-body-label">Tasks</span>
+                    <button class="btn-new" style="font-size:10px;padding:3px 9px" onclick="openCreateTaskForPlan(${plan.plan_number})">+ New Task</button>
+                </div>
+                <div class="mini-kanban" id="mini-kanban-${plan.plan_number}">
+                    <div style="font-size:11px;opacity:0.5;padding:8px">Loading...</div>
+                </div>
+            </div>
+        `;
+
+        item.querySelector('.plan-header').addEventListener('click', (e) => {
+            if (e.target.closest('.plan-actions')) return;
+            togglePlan(plan.plan_number, item);
+        });
+
+        item.querySelector('.edit-plan-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openEditPlanModal(plan);
+        });
+
+        item.querySelector('.delete-plan-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeletePlanModal(plan);
+        });
+
+        if (isExpanded) {
+            loadPlanTasks(plan.plan_number);
+        }
+
+        return item;
+    }
+
+    async function togglePlan(planNumber, item) {
+        if (expandedPlans.has(planNumber)) {
+            expandedPlans.delete(planNumber);
+            item.classList.remove('expanded');
+        } else {
+            expandedPlans.add(planNumber);
+            item.classList.add('expanded');
+            await loadPlanTasks(planNumber);
+        }
+    }
+
+    async function loadPlanTasks(planNumber) {
+        try {
+            const planTasks = await apiGet(`/api/plans/${planNumber}/tasks`);
+            renderMiniKanban(planNumber, planTasks);
+        } catch (e) {
+            const el = document.getElementById(`mini-kanban-${planNumber}`);
+            if (el) el.innerHTML = `<div style="font-size:11px;color:#e57373;padding:8px">Failed to load tasks</div>`;
+        }
+    }
+
+    function renderMiniKanban(planNumber, planTasks) {
+        const container = document.getElementById(`mini-kanban-${planNumber}`);
+        if (!container) return;
+
+        const statusGroups = [
+            { status: 'open',                  label: 'Open',         color: '#6c9ef8' },
+            { status: 'in-progress',           label: 'In Progress',  color: '#f0a040' },
+            { status: 'pending-verification',  label: 'Pending',      color: '#9c6fe4' },
+            { status: 'done',                  label: 'Done',         color: '#4caf50' },
+            { status: 'error',                 label: 'Error',        color: '#e53935' },
+        ];
+
+        container.innerHTML = '';
+        for (const grp of statusGroups) {
+            const grpTasks = planTasks.filter(t => t.status === grp.status);
+            const col = document.createElement('div');
+            col.className = 'mini-col';
+            col.innerHTML = `
+                <div class="mini-col-header" style="color:${grp.color}">${grp.label} <span style="opacity:0.5">(${grpTasks.length})</span></div>
+                <div class="mini-col-cards" id="mini-col-${planNumber}-${grp.status}"></div>
+            `;
+            const cardsEl = col.querySelector('.mini-col-cards');
+            if (grpTasks.length === 0) {
+                cardsEl.innerHTML = '<div style="font-size:10px;opacity:0.3;padding:4px;text-align:center">—</div>';
+            } else {
+                for (const t of grpTasks) {
+                    // Sync to global tasks list
+                    const idx = tasks.findIndex(x => x.task_number === t.task_number);
+                    if (idx >= 0) { tasks[idx] = t; } else { tasks.push(t); }
+                    if (t.logs)     logsMap[t.task_number]     = t.logs;
+                    if (t.criteria) criteriaMap[t.task_number] = t.criteria;
+
+                    const card = document.createElement('div');
+                    card.className = 'mini-task-card';
+                    card.innerHTML = `<span class="mini-task-number">#${t.task_number}</span>${escapeHtml(t.title)}`;
+                    card.addEventListener('click', () => openEditModal(t));
+                    cardsEl.appendChild(card);
+                }
+            }
+            container.appendChild(col);
+        }
+    }
+
+    // ── Delete Spec ───────────────────────────────────────────────────────────
+    function openDeleteSpecModal(spec) {
+        deletingTaskNumber = null; // reuse existing delete modal
+        document.getElementById('delete-confirm-text').textContent =
+            `Delete SPEC-${String(spec.spec_number).padStart(3,'0')}: "${spec.title}"? All plans will be removed.`;
+        document.getElementById('modal-delete-confirm').textContent = 'Delete Spec';
+        document.getElementById('modal-delete-confirm').dataset.deleteType = 'spec';
+        document.getElementById('modal-delete-confirm').dataset.deleteId   = spec.spec_number;
+        document.getElementById('modal-delete').classList.add('open');
+    }
+
+    // ── Delete Plan ───────────────────────────────────────────────────────────
+    function openDeletePlanModal(plan) {
+        deletingTaskNumber = null;
+        document.getElementById('delete-confirm-text').textContent =
+            `Delete PLAN-${String(plan.plan_number).padStart(3,'0')}: "${plan.title}"? Tasks will be unlinked, not deleted.`;
+        document.getElementById('modal-delete-confirm').textContent = 'Delete Plan';
+        document.getElementById('modal-delete-confirm').dataset.deleteType = 'plan';
+        document.getElementById('modal-delete-confirm').dataset.deleteId   = plan.plan_number;
+        document.getElementById('modal-delete').classList.add('open');
+    }
+
+    // ── Create/Edit Spec Modal ────────────────────────────────────────────────
+    function openCreateSpecModal() {
+        editingSpecNumber = null;
+        document.getElementById('modal-spec-title').textContent = 'New Specification';
+        document.getElementById('modal-spec-confirm').textContent = 'Create Spec';
+        document.getElementById('spec-input-title').value = '';
+        document.getElementById('spec-input-description').value = '';
+        document.getElementById('spec-input-priority').value = '1';
+        document.getElementById('spec-error-title').classList.remove('visible');
+        document.getElementById('spec-group-status').style.display = 'none';
+        document.getElementById('modal-spec').classList.add('open');
+        setTimeout(() => document.getElementById('spec-input-title').focus(), 50);
+    }
+
+    function openEditSpecModal(spec) {
+        editingSpecNumber = spec.spec_number;
+        document.getElementById('modal-spec-title').textContent = `Edit SPEC-${String(spec.spec_number).padStart(3, '0')}`;
+        document.getElementById('modal-spec-confirm').textContent = 'Save';
+        document.getElementById('spec-input-title').value = spec.title;
+        document.getElementById('spec-input-description').value = spec.description || '';
+        document.getElementById('spec-input-priority').value = String(spec.priority || 1);
+        document.getElementById('spec-error-title').classList.remove('visible');
+        document.getElementById('spec-group-status').style.display = 'block';
+        document.getElementById('spec-input-status').value = spec.status;
+        document.getElementById('modal-spec').classList.add('open');
+        setTimeout(() => document.getElementById('spec-input-title').focus(), 50);
+    }
+
+    function closeSpecModal() {
+        document.getElementById('modal-spec').classList.remove('open');
+        editingSpecNumber = null;
+    }
+
+    document.getElementById('modal-spec-cancel').addEventListener('click', closeSpecModal);
+    document.getElementById('modal-spec').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('modal-spec')) closeSpecModal();
+    });
+
+    document.getElementById('modal-spec-confirm').addEventListener('click', async () => {
+        const title = document.getElementById('spec-input-title').value.trim();
+        if (!title) {
+            document.getElementById('spec-error-title').classList.add('visible');
+            document.getElementById('spec-input-title').focus();
+            return;
+        }
+        document.getElementById('spec-error-title').classList.remove('visible');
+        const description = document.getElementById('spec-input-description').value.trim() || null;
+        const priority    = parseInt(document.getElementById('spec-input-priority').value) || 1;
+
+        try {
+            if (editingSpecNumber) {
+                const status = document.getElementById('spec-input-status').value;
+                await apiPatch(`/api/specs/${editingSpecNumber}`, { title, description, priority, status });
+            } else {
+                await apiPost('/api/specs', { title, description, priority });
+            }
+            closeSpecModal();
+            await loadSpecs();
+        } catch (err) {
+            showStandaloneError('Failed to save spec — ' + (err.message || 'unknown'));
+        }
+    });
+
+    // ── Create/Edit Plan Modal ────────────────────────────────────────────────
+    function openCreatePlanModal() {
+        editingPlanNumber = null;
+        document.getElementById('modal-plan-title').textContent = 'New Plan';
+        document.getElementById('modal-plan-confirm').textContent = 'Create Plan';
+        document.getElementById('plan-input-title').value = '';
+        document.getElementById('plan-input-description').value = '';
+        document.getElementById('plan-error-title').classList.remove('visible');
+        document.getElementById('modal-plan').classList.add('open');
+        setTimeout(() => document.getElementById('plan-input-title').focus(), 50);
+    }
+
+    function openEditPlanModal(plan) {
+        editingPlanNumber = plan.plan_number;
+        document.getElementById('modal-plan-title').textContent = `Edit PLAN-${String(plan.plan_number).padStart(3, '0')}`;
+        document.getElementById('modal-plan-confirm').textContent = 'Save';
+        document.getElementById('plan-input-title').value = plan.title;
+        document.getElementById('plan-input-description').value = plan.description || '';
+        document.getElementById('plan-error-title').classList.remove('visible');
+        document.getElementById('modal-plan').classList.add('open');
+        setTimeout(() => document.getElementById('plan-input-title').focus(), 50);
+    }
+
+    function closePlanModal() {
+        document.getElementById('modal-plan').classList.remove('open');
+        editingPlanNumber = null;
+    }
+
+    document.getElementById('modal-plan-cancel').addEventListener('click', closePlanModal);
+    document.getElementById('modal-plan').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('modal-plan')) closePlanModal();
+    });
+
+    document.getElementById('modal-plan-confirm').addEventListener('click', async () => {
+        const title = document.getElementById('plan-input-title').value.trim();
+        if (!title) {
+            document.getElementById('plan-error-title').classList.add('visible');
+            document.getElementById('plan-input-title').focus();
+            return;
+        }
+        document.getElementById('plan-error-title').classList.remove('visible');
+        const description = document.getElementById('plan-input-description').value.trim() || null;
+
+        try {
+            if (editingPlanNumber) {
+                await apiPatch(`/api/plans/${editingPlanNumber}`, { title, description });
+            } else {
+                await apiPost(`/api/specs/${currentSpecNumber}/plans`, { title, description });
+            }
+            closePlanModal();
+            await loadPlans(currentSpecNumber);
+        } catch (err) {
+            showStandaloneError('Failed to save plan — ' + (err.message || 'unknown'));
+        }
+    });
+
+    // ── Create task linked to a plan ──────────────────────────────────────────
+    function openCreateTaskForPlan(planNumber) {
+        openCreateModal();
+        // Store planNumber so confirm handler can use it
+        document.getElementById('modal-form').dataset.planNumber = planNumber;
+    }
+
+    // ── WebSocket: also listen for data_updated ───────────────────────────────
+    const _origWsSetup = wsSetupDone => wsSetupDone; // no-op ref
+
+    // ── Real-time reload on data_updated ─────────────────────────────────────
+    function onDataUpdated() {
+        if (currentTab === 'specs') {
+            if (currentSpecNumber !== null) {
+                loadPlans(currentSpecNumber);
+            } else {
+                loadSpecs();
+            }
+        }
+    }
+
     if (isVSCode) {
         sendVscode({ command: 'requestLoadTasks' });
-        sendVscode({ command: 'requestLoadTemplates' });
         startPolling();
     } else {
+        // Start in specs view, load specs first
+        loadSpecs();
         loadTasksViaApi();
         startPolling();
+
+        // WebSocket for real-time updates
+        (function setupWebSocket() {
+            const wsUrl = apiBase.replace(/^http/, 'ws') + '/ws';
+            let ws;
+            function connect() {
+                ws = new WebSocket(wsUrl);
+                ws.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === 'tasks_updated') {
+                            loadTasksViaApi();
+                            if (currentSpecNumber !== null) loadPlans(currentSpecNumber);
+                        }
+                        if (msg.type === 'data_updated') {
+                            onDataUpdated();
+                            loadTasksViaApi();
+                        }
+                    } catch {}
+                };
+                ws.onclose = () => setTimeout(connect, 3000);
+                ws.onerror = () => ws.close();
+            }
+            connect();
+        })();
     }
 </script>
 </body>

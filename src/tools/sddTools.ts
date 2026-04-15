@@ -16,7 +16,8 @@ export const CreateTaskSchema = z.object({
   expected_outputs:    z.string().min(1),
   acceptance_criteria: z.array(z.string().min(1)).min(1),
   status:              z.enum(["open", "in-progress", "pending-verification", "done", "error"]).default("open"),
-  depends_on:          z.string().uuid().optional()
+  depends_on:          z.string().uuid().optional(),
+  plan_number:         z.number().int().positive().optional()
 });
 
 export const UpdateTaskSchema = z.object({
@@ -42,7 +43,7 @@ export const VerifyCriterionSchema = z.object({
   note:         z.string().min(1).max(2000)
 });
 
-export type CreateTaskInput    = z.infer<typeof CreateTaskSchema>;
+export type CreateTaskInput    = z.infer<typeof CreateTaskSchema> & { plan_number?: number };
 export type UpdateTaskInput    = z.infer<typeof UpdateTaskSchema>;
 export type SubmitEvidenceInput = z.infer<typeof SubmitEvidenceSchema>;
 export type VerifyCriterionInput = z.infer<typeof VerifyCriterionSchema>;
@@ -63,7 +64,8 @@ export const sddTools = {
           args.status as any,
           args.depends_on,
           args.inputs,
-          args.expected_outputs
+          args.expected_outputs,
+          args.plan_number
         );
 
         if (args.acceptance_criteria?.length) {
