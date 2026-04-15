@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import {
   startDashboardServer,
+  stopDashboardServer,
   isServerRunning,
   getServerPort
 } from '../server/index.js';
@@ -50,4 +51,34 @@ export const start_server = {
   }
 };
 
-export const serverTools = { start_server };
+/**
+ * stop_server — gracefully stops the dashboard server
+ */
+export const stop_server = {
+  schema: z.object({}),
+
+  handler: async (): Promise<any> => {
+    try {
+      if (!isServerRunning()) {
+        return {
+          success: true,
+          message: 'Dashboard is not running'
+        };
+      }
+
+      stopDashboardServer();
+      
+      return {
+        success: true,
+        message: 'Dashboard server stopped gracefully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+};
+
+export const serverTools = { start_server, stop_server };
