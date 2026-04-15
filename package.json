@@ -1,6 +1,6 @@
 {
   "name": "@rafaelsouza-ai/mcp-server-sdd",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "MCP Server for Spec-Driven Development - Create and manage SDD test specifications with tasks, logs, and acceptance criteria",
   "main": "dist/index.js",
   "type": "module",
