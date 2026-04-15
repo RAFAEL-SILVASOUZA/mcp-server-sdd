@@ -1,6 +1,14 @@
 {
   "shellAllow": [
     "npm run build 2>&1",
-    "npm run build && npm start"
+    "npm run build && npm start",
+    "npm run build",
+    "npm publish --registry file:./local-npm-registry 2>&1 || npm pack",
+    "npm install -g ./rafaelsouza-ai-mcp-server-sdd-1.0.5.tgz",
+    "npx -y @rafaelsouza-ai/mcp-server-sdd --help",
+    "npm run build && npm pack && npm install -g ./rafaelsouza-ai-mcp-server-sdd-1.0.5.tgz",
+    "echo \"test\" | npx -y @rafaelsouza-ai/mcp-server-sdd",
+    "npm version patch --no-git-tagged && npm publish --access public",
+    "git add -A && git commit -m \"fix: correção do locateFile para sql.js WASM em instalação global\""
   ]
 }

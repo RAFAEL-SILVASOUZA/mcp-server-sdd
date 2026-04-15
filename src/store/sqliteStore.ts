@@ -2,7 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import { existsSync, mkdirSync } from 'fs';
+import { fileURLToPath } from 'url';
 import type { Task, TaskLog, TaskCriterion, TaskWithEmbeds, TaskStatus, Spec, SpecStatus, Plan, PlanStatus, PlanWithTasks, SpecWithHierarchy } from '../types/sdd.js';
+
+// Get the directory of this module at runtime (works in both dev and production)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 type SqlJsModule = {
   Database: new (data?: ArrayBuffer) => { exec(sql: string): any[]; export(): Uint8Array; close(): void; prepare(sql: string): { bind(params: any[]): void; step(): boolean; getAsArray(): any[]; free(): void } };
@@ -27,8 +32,9 @@ export class SqliteStore {
       const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);
       const SQLModule = await initSqlJsFunc({
         locateFile: (file: string) => {
-          // Use local WASM files from dist directory
-          return `./${file}`;
+          // Resolve WASM file relative to this module's location
+          // Works both in development and when installed globally
+          return path.join(__dirname, '..', 'sql-wasm.wasm');
         }
       }) as SqlJsModule;
       this.db = new SQLModule.Database();
