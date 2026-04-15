@@ -10,9 +10,9 @@
   "files": [
     "dist",
     "README.md"
-  ],
-  "scripts": {
-    "build": "tsc && node scripts/add-shebang.mjs",
+  ],  "scripts": {
+    "copy:wasm": "node scripts/copy-wasm.mjs",
+    "build": "tsc && npm run copy:wasm && node scripts/add-shebang.mjs",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",

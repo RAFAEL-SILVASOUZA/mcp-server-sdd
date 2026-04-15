@@ -27,8 +27,8 @@ export class SqliteStore {
       const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);
       const SQLModule = await initSqlJsFunc({
         locateFile: (file: string) => {
-          // Use local files from node_modules
-          return path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', file);
+          // Use local WASM files from dist directory
+          return `./${file}`;
         }
       }) as SqlJsModule;
       this.db = new SQLModule.Database();
