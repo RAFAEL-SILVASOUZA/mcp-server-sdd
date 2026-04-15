@@ -9,6 +9,8 @@
     "npm run build && npm pack && npm install -g ./rafaelsouza-ai-mcp-server-sdd-1.0.5.tgz",
     "echo \"test\" | npx -y @rafaelsouza-ai/mcp-server-sdd",
     "npm version patch --no-git-tagged && npm publish --access public",
-    "git add -A && git commit -m \"fix: correção do locateFile para sql.js WASM em instalação global\""
+    "git add -A && git commit -m \"fix: correção do locateFile para sql.js WASM em instalação global\"",
+    "npm version minor --no-git-tagged && npm publish --access public",
+    "git add -A && git commit -m \"chore: limpar arquivo tgz\""
   ]
 }
