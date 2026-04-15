@@ -26,7 +26,7 @@ Any tool called before `start_server` returns an error with the required order. 
 ### Claude Code (recommended)
 
 ```bash
-claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd
+claude mcp add sdd npx -- -y @rafaelssouza-ai/mcp-server-sdd
 ```
 
 ### Manual — `.claude/settings.json` or `claude_desktop_config.json`
@@ -36,7 +36,7 @@ claude mcp add sdd npx -- -y @rafaelsouza-ai/mcp-server-sdd
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"]
+      "args": ["-y", "@rafaelssouza-ai/mcp-server-sdd"]
     }
   }
 }
@@ -53,7 +53,7 @@ Set `WORKSPACE_PATH` to keep the database alongside your project:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
+      "args": ["-y", "@rafaelssouza-ai/mcp-server-sdd"],
       "env": {
         "WORKSPACE_PATH": "/path/to/your/project"
       }
@@ -68,7 +68,7 @@ Set `WORKSPACE_PATH` to keep the database alongside your project:
   "mcpServers": {
     "sdd": {
       "command": "npx",
-      "args": ["-y", "@rafaelsouza-ai/mcp-server-sdd"],
+      "args": ["-y", "@rafaelssouza-ai/mcp-server-sdd"],
       "env": {
         "WORKSPACE_PATH": "C:\\Users\\you\\projects\\my-app"
       }
