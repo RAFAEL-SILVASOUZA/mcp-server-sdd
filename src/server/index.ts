@@ -19,7 +19,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
-import { store } from '../store/sqliteStore.js';
+import { store } from '../store/jsonStore.js';
 import type { TaskStatus, SpecStatus } from '../types/sdd.js';
 
 // ── Version check ─────────────────────────────────────────────────────────────
@@ -122,6 +122,9 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
     return { port: serverState.port, url: `http://localhost:${serverState.port}` };
   }
 
+  // Reload database from disk to pick up any changes made while MCP was offline
+  await store.reload();
+
   const app        = express();
   const httpServer = createServer(app);
   const wsServer   = new WebSocketServer({ server: httpServer });
@@ -175,30 +178,30 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   });
 
   // POST /api/tasks
-  app.post('/api/tasks', (req: Request, res: Response) => {
+  app.post('/api/tasks', async (req: Request, res: Response) => {
     try {
       const { title, description, status, depends_on, inputs, expected_outputs, criteria, plan_number } = req.body;
       if (!title) return res.status(400).json({ error: 'title is required' }) as any;
 
-      const task = store.createTask(title, description, status, depends_on, inputs, expected_outputs, plan_number ?? undefined);
+      const task = await store.createTask(title, description, status, depends_on, inputs, expected_outputs, plan_number ?? undefined);
 
       if (Array.isArray(criteria)) {
         for (const c of criteria) {
           if (typeof c === 'string' && c.trim()) {
-            store.addAcceptanceCriterion(task.task_number, c.trim());
+            await store.addAcceptanceCriterion(task.task_number, c.trim());
           }
         }
       }
 
       notifyUpdated();
-      res.status(201).json(store.getTaskWithEmbeds(task.task_number));
+      res.status(201).json(await store.getTaskWithEmbeds(task.task_number));
     } catch (e) {
       res.status(500).json({ error: String(e) });
     }
   });
 
   // PATCH /api/tasks/:taskNumber
-  app.patch('/api/tasks/:taskNumber', (req: Request, res: Response) => {
+  app.patch('/api/tasks/:taskNumber', async (req: Request, res: Response) => {
     try {
       const n = parseInt(String(req.params.taskNumber), 10);
       const { title, description, status, depends_on, inputs, expected_outputs, criteria, plan_number } = req.body;
@@ -212,35 +215,35 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
       if (expected_outputs   !== undefined) updates.expected_outputs   = expected_outputs;
       if (plan_number        !== undefined) updates.plan_number        = plan_number;
 
-      const task = store.updateTask(n, updates);
+      const task = await store.updateTask(n, updates);
       if (!task) return res.status(404).json({ error: 'Task not found' }) as any;
 
       // Replace criteria when provided
       if (Array.isArray(criteria)) {
         // Delete existing, then re-insert
         // (simplest approach: delete all and re-add)
-        const existing = store.getCriteria(n);
+        const existing = await store.getCriteria(n);
         // We can't easily delete by task_number without a dedicated method — add one inline
         (store as any).db.prepare('DELETE FROM criteria WHERE task_number = ?').run(n);
         for (const c of criteria) {
           if (typeof c === 'string' && c.trim()) {
-            store.addAcceptanceCriterion(n, c.trim());
+            await store.addAcceptanceCriterion(n, c.trim());
           }
         }
       }
 
       notifyUpdated();
-      res.json(store.getTaskWithEmbeds(n));
+      res.json(await store.getTaskWithEmbeds(n));
     } catch (e) {
       res.status(500).json({ error: String(e) });
     }
   });
 
   // DELETE /api/tasks/:taskNumber
-  app.delete('/api/tasks/:taskNumber', (req: Request, res: Response) => {
+  app.delete('/api/tasks/:taskNumber', async (req: Request, res: Response) => {
     try {
       const n = parseInt(String(req.params.taskNumber), 10);
-      const deleted = store.deleteTask(n);
+      const deleted = await store.deleteTask(n);
       if (!deleted) return res.status(404).json({ error: 'Task not found' }) as any;
       notifyUpdated();
       res.status(204).send();
@@ -275,22 +278,22 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   // ── REST — Specs ──────────────────────────────────────────────────────────
 
   // GET /api/specs
-  app.get('/api/specs', (req: Request, res: Response) => {
+  app.get('/api/specs', async (req: Request, res: Response) => {
     try {
       const status = req.query.status as SpecStatus | undefined;
-      const specs  = store.listSpecs(status);
+      const specs  = await store.listSpecs(status);
       const result = specs.map(s => ({ ...s, progress: store.getSpecProgress(s.spec_number) }));
       res.json(result);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
   // GET /api/specs/:specNumber
-  app.get('/api/specs/:specNumber', (req: Request, res: Response) => {
+  app.get('/api/specs/:specNumber', async (req: Request, res: Response) => {
     try {
       const n    = parseInt(String(req.params.specNumber), 10);
-      const spec = store.getSpecByNumber(n);
+      const spec = await store.getSpecByNumber(n);
       if (!spec) return res.status(404).json({ error: 'Spec not found' }) as any;
-      const plans    = store.listPlansBySpec(n);
+      const plans    = await store.listPlansBySpec(n);
       const progress = store.getSpecProgress(n);
       res.json({ ...spec, plans, progress });
     } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -307,18 +310,18 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   });
 
   // POST /api/specs
-  app.post('/api/specs', (req: Request, res: Response) => {
+  app.post('/api/specs', async (req: Request, res: Response) => {
     try {
       const { title, description, priority, estimated_hours } = req.body;
       if (!title) return res.status(400).json({ error: 'title is required' }) as any;
-      const spec = store.createSpec(title, description, priority ?? 1, estimated_hours);
+      const spec = await store.createSpec(title, description, priority ?? 1, estimated_hours);
       notifyDataUpdated();
       res.status(201).json({ ...spec, progress: store.getSpecProgress(spec.spec_number) });
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
   // PATCH /api/specs/:specNumber
-  app.patch('/api/specs/:specNumber', (req: Request, res: Response) => {
+  app.patch('/api/specs/:specNumber', async (req: Request, res: Response) => {
     try {
       const n = parseInt(String(req.params.specNumber), 10);
       const { title, description, status, priority, estimated_hours } = req.body;
@@ -328,7 +331,7 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
       if (status          !== undefined) updates.status          = status;
       if (priority        !== undefined) updates.priority        = priority;
       if (estimated_hours !== undefined) updates.estimated_hours = estimated_hours;
-      const spec = store.updateSpec(n, updates);
+      const spec = await store.updateSpec(n, updates);
       if (!spec) return res.status(404).json({ error: 'Spec not found' }) as any;
       notifyDataUpdated();
       res.json({ ...spec, progress: store.getSpecProgress(n) });
@@ -336,10 +339,10 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   });
 
   // DELETE /api/specs/:specNumber
-  app.delete('/api/specs/:specNumber', (req: Request, res: Response) => {
+  app.delete('/api/specs/:specNumber', async (req: Request, res: Response) => {
     try {
       const n       = parseInt(String(req.params.specNumber), 10);
-      const deleted = store.deleteSpec(n);
+      const deleted = await store.deleteSpec(n);
       if (!deleted) return res.status(404).json({ error: 'Spec not found' }) as any;
       notifyDataUpdated();
       res.status(204).send();
@@ -349,40 +352,40 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   // ── REST — Plans ──────────────────────────────────────────────────────────
 
   // GET /api/specs/:specNumber/plans
-  app.get('/api/specs/:specNumber/plans', (req: Request, res: Response) => {
+  app.get('/api/specs/:specNumber/plans', async (req: Request, res: Response) => {
     try {
       const n     = parseInt(String(req.params.specNumber), 10);
-      const plans = store.listPlansBySpec(n);
+      const plans = await store.listPlansBySpec(n);
       res.json(plans);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
   // POST /api/specs/:specNumber/plans
-  app.post('/api/specs/:specNumber/plans', (req: Request, res: Response) => {
+  app.post('/api/specs/:specNumber/plans', async (req: Request, res: Response) => {
     try {
       const spec_number = parseInt(String(req.params.specNumber), 10);
       const { title, description, sort_order, estimated_hours } = req.body;
       if (!title) return res.status(400).json({ error: 'title is required' }) as any;
-      if (!store.getSpecByNumber(spec_number)) return res.status(404).json({ error: 'Spec not found' }) as any;
-      const plan = store.createPlan(spec_number, title, description, sort_order, estimated_hours);
+      if (!(await store.getSpecByNumber(spec_number))) return res.status(404).json({ error: 'Spec not found' }) as any;
+      const plan = await store.createPlan(spec_number, title, description, sort_order, estimated_hours);
       notifyDataUpdated();
       res.status(201).json(plan);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
   // GET /api/plans/:planNumber
-  app.get('/api/plans/:planNumber', (req: Request, res: Response) => {
+  app.get('/api/plans/:planNumber', async (req: Request, res: Response) => {
     try {
       const n    = parseInt(String(req.params.planNumber), 10);
-      const plan = store.getPlanByNumber(n);
+      const plan = await store.getPlanByNumber(n);
       if (!plan) return res.status(404).json({ error: 'Plan not found' }) as any;
-      const tasks = store.listTasksByPlanWithEmbeds(n);
+      const tasks = await store.listTasksByPlanWithEmbeds(n);
       res.json({ ...plan, tasks });
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
   // PATCH /api/plans/:planNumber
-  app.patch('/api/plans/:planNumber', (req: Request, res: Response) => {
+  app.patch('/api/plans/:planNumber', async (req: Request, res: Response) => {
     try {
       const n = parseInt(String(req.params.planNumber), 10);
       const { title, description, sort_order, estimated_hours } = req.body;
@@ -391,7 +394,7 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
       if (description     !== undefined) updates.description     = description;
       if (sort_order      !== undefined) updates.sort_order      = sort_order;
       if (estimated_hours !== undefined) updates.estimated_hours = estimated_hours;
-      const plan = store.updatePlan(n, updates);
+      const plan = await store.updatePlan(n, updates);
       if (!plan) return res.status(404).json({ error: 'Plan not found' }) as any;
       notifyDataUpdated();
       res.json(plan);
@@ -399,10 +402,10 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
   });
 
   // DELETE /api/plans/:planNumber
-  app.delete('/api/plans/:planNumber', (req: Request, res: Response) => {
+  app.delete('/api/plans/:planNumber', async (req: Request, res: Response) => {
     try {
       const n       = parseInt(String(req.params.planNumber), 10);
-      const deleted = store.deletePlan(n);
+      const deleted = await store.deletePlan(n);
       if (!deleted) return res.status(404).json({ error: 'Plan not found' }) as any;
       notifyDataUpdated();
       res.status(204).send();

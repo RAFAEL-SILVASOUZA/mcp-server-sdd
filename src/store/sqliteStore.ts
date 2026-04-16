@@ -62,45 +62,32 @@ export class SqliteStore {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     } catch {}
 
-    // Initialize sql.js asynchronously
+    // Initialize sql.js asynchronously with file-based database from the start
     this.initPromise = (async () => {
-      const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);      const SQLModule = await initSqlJsFunc({
+      const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);
+      const SQLModule = await initSqlJsFunc({
         locateFile: (file: string) => {
           // Return absolute path to WASM file inside sql.js package
           return path.join(__dirname, '../../node_modules/sql.js/dist/', file);
         }
       }) as SqlJsModule;
-      this.db = new SQLModule.Database();
 
-      this.initTables();
-      this.migrate();
-
-      // Load existing data from file if it exists
+      // Open database directly from file (creates if doesn't exist)
+      let dbData: ArrayBuffer | undefined = undefined;
       if (fs.existsSync(this.dbPath)) {
-        const fileBuffer = fs.readFileSync(this.dbPath);
-        const existingDb = new SQLModule.Database(fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength));
+        const buffer = fs.readFileSync(this.dbPath);
+        dbData = buffer.buffer.slice(buffer.byteOffset, buffer.byteLength);
+      }
+      this.db = new SQLModule.Database(dbData);
 
-        // Export all tables from existing DB and import to our DB
-        const tables = ['specs', 'plans', 'tasks', 'logs', 'criteria'];
-        for (const table of tables) {
-          const rows = existingDb.exec(`SELECT * FROM ${table}`);
-          if (rows.length > 0 && rows[0].values.length > 0) {
-            const columns = rows[0].columns;
-            const values = rows[0].values;
-
-            // Insert each row
-            const placeholders = columns.map(() => '?').join(',');
-            const insertStmt = `INSERT OR REPLACE INTO ${table} (${columns.join(',')}) VALUES (${placeholders})`;
-            const stmt = this.db!.prepare(insertStmt);
-
-            for (const row of values) {
-              stmt.bind(row);
-              if (!stmt.step()) break;
-              stmt.free();
-            }
-          }
-        }
-        existingDb.close();
+      // Only initialize tables and migrate if it's a new database
+      const tableCountResult = this.db.exec("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name='specs'");
+      const hasSpecsTable = (tableCountResult[0]?.values?.[0]?.[0] ?? 0) as number;
+      
+      if (hasSpecsTable === 0) {
+        this.initTables();
+      } else {
+        this.migrate();
       }
     })();
   }
@@ -688,7 +675,9 @@ export class SqliteStore {
     this.save();
 
     return this.getTaskByNumber(taskNumber)!;
-  }  updateTaskStatus(id: string, status: TaskStatus): Task | null {
+  }
+
+  updateTaskStatus(id: string, status: TaskStatus): Task | null {
     return this.updateTask(id, { status });
   }
 
@@ -808,23 +797,49 @@ export class SqliteStore {
 
   // ── Utility ──────────────────────────────────────────────────────────────────
 
+  /**
+   * Reloads the database from disk.
+   * This is useful when the MCP server restarts and the module cache prevents
+   * the constructor from running again. Calling this method ensures that
+   * any changes made to the database file while the server was down are loaded.
+   */
+  async reload(): Promise<void> {
+    await this.ensureReady();
+    
+    if (!fs.existsSync(this.dbPath)) {
+      return; // No file to reload
+    }
+
+    // Close existing connection and reopen from file
+    if (this.db) {
+      this.db.close();
+    }
+
+    // Reopen database directly from file
+    const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);
+    const SQLModule = await initSqlJsFunc({
+      locateFile: (file: string) => {
+        return path.join(__dirname, '../../node_modules/sql.js/dist/', file);
+      }
+    }) as SqlJsModule;
+
+    const buffer = fs.readFileSync(this.dbPath);
+    this.db = new SQLModule.Database(buffer.buffer.slice(0, buffer.byteLength));
+  }
+
   close(): void {
     if (this.db) {
-      // Save database to file before closing
-      const data = this.db.export();
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(this.dbPath, buffer);
+      this.save();
       this.db.close();
     }
   }
 
   save(): void {
-    if (this.db) {
-      // Save database to file
-      const data = this.db.export();
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(this.dbPath, buffer);
-    }
+    if (!this.db || !fs.existsSync(this.dbPath)) return;
+    // Database is already file-based, just ensure sync by exporting
+    const data = this.db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(this.dbPath, buffer);
   }
 }
 

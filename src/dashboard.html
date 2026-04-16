@@ -2430,7 +2430,8 @@
             if (t.task_number === excludeTaskNumber) { continue; }
             const opt = document.createElement('option');
             opt.value = t.task_number;
-            opt.textContent = `#${t.task_number} — ${t.title.substring(0, 40)}${t.title.length > 40 ? '…' : ''}`;
+            const title = String(t.title || '');
+            opt.textContent = `#${t.task_number} — ${title.substring(0, 40)}${title.length > 40 ? '…' : ''}`;
             sel.appendChild(opt);
         }
         sel.value = current || '';

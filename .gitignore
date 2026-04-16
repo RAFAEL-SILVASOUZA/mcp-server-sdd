@@ -12,6 +12,7 @@ build/
 *.sqlite
 *.sqlite3
 sdd.db
+sdd
 
 # IDE and editor files
 .vscode/

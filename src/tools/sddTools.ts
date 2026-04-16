@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { store } from "../store/sqliteStore.js";
+import { store } from "../store/jsonStore.js";
 import { broadcastToClients, isServerRunning } from "../server/index.js";
 
 const SERVER_NOT_STARTED = {
@@ -58,7 +58,7 @@ export const sddTools = {
     handler: async (args: CreateTaskInput) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
       try {
-        const task = store.createTask(
+        const task = await store.createTask(
           args.title,
           args.description,
           args.status as any,
@@ -70,7 +70,7 @@ export const sddTools = {
 
         if (args.acceptance_criteria?.length) {
           for (const c of args.acceptance_criteria) {
-            store.addAcceptanceCriterion(task.task_number, c);
+            await store.addAcceptanceCriterion(task.task_number, c);
           }
         }
 
@@ -86,7 +86,7 @@ export const sddTools = {
     schema: z.object({ task_id: z.string().uuid() }),
     handler: async (args: { task_id: string }) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const task = store.getTaskByUUID(args.task_id);
+      const task = await store.getTaskByUUID(args.task_id);
       if (!task) return { success: false, error: "Task not found" };
       return { success: true, data: store.getTaskWithEmbeds(task.task_number) };
     }
@@ -104,11 +104,11 @@ export const sddTools = {
       if (args.inputs           !== undefined) updates.inputs           = args.inputs;
       if (args.expected_outputs !== undefined) updates.expected_outputs = args.expected_outputs;
 
-      const task = store.updateTask(args.task_id, updates);
+      const task = await store.updateTask(args.task_id, updates);
       if (!task) return { success: false, error: "Task not found" };
 
       if (args.log_message) {
-        store.addLog(task.task_number, args.log_message, 'agent');
+        await store.addLog(task.task_number, args.log_message, 'agent');
       }
 
       broadcastToClients({ type: 'tasks_updated' });
@@ -131,12 +131,12 @@ export const sddTools = {
     schema: z.object({ task_id: z.string().uuid() }),
     handler: async (args: { task_id: string }) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const task = store.getTaskByUUID(args.task_id);
+      const task = await store.getTaskByUUID(args.task_id);
       if (!task) return { success: false, error: "Task not found" };
       if (task.status !== 'open') {
         return { success: false, error: `Cannot delete task with status '${task.status}' — only 'open' tasks can be deleted` };
       }
-      store.deleteTask(args.task_id);
+      await store.deleteTask(args.task_id);
       broadcastToClients({ type: 'tasks_updated' });
       return { success: true, message: "Task deleted" };
     }
@@ -150,9 +150,9 @@ export const sddTools = {
     }),
     handler: async (args: { task_id: string; message: string; created_by?: string }) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const task = store.getTaskByUUID(args.task_id);
+      const task = await store.getTaskByUUID(args.task_id);
       if (!task) return { success: false, error: "Task not found" };
-      const log = store.addLog(task.task_number, args.message, args.created_by ?? 'agent');
+      const log = await store.addLog(task.task_number, args.message, args.created_by ?? 'agent');
       broadcastToClients({ type: 'tasks_updated' });
       return { success: true, data: log };
     }
@@ -162,7 +162,7 @@ export const sddTools = {
     schema: z.object({ task_id: z.string().uuid() }),
     handler: async (args: { task_id: string }) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const logs = store.listLogs(args.task_id);
+      const logs = await store.listLogs(args.task_id);
       return { success: true, data: logs };
     }
   },
@@ -171,16 +171,16 @@ export const sddTools = {
     schema: SubmitEvidenceSchema,
     handler: async (args: SubmitEvidenceInput) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const task = store.getTaskByUUID(args.task_id);
+      const task = await store.getTaskByUUID(args.task_id);
       if (!task) return { success: false, error: "Task not found" };
 
-      store.updateTask(args.task_id, {
+      await store.updateTask(args.task_id, {
         evidence_summary:     args.summary,
         test_output_snapshot: args.test_output,
         status:               'pending-verification'
       });
 
-      store.addLog(task.task_number, `Evidence submitted: ${args.summary}`, 'agent');
+      await store.addLog(task.task_number, `Evidence submitted: ${args.summary}`, 'agent');
       broadcastToClients({ type: 'tasks_updated' });
       return { success: true, message: "Evidence submitted. Task moved to pending-verification." };
     }
@@ -204,7 +204,7 @@ export const sddTools = {
     schema: z.object({ task_id: z.string().uuid() }),
     handler: async (args: { task_id: string }) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const criteria = store.listCriteria(args.task_id);
+      const criteria = await store.listCriteria(args.task_id);
       return { success: true, data: criteria };
     }
   },
@@ -216,9 +216,9 @@ export const sddTools = {
     }),
     handler: async (args: { task_id: string; criterion: string }) => {
       if (!isServerRunning()) return SERVER_NOT_STARTED;
-      const task = store.getTaskByUUID(args.task_id);
+      const task = await store.getTaskByUUID(args.task_id);
       if (!task) return { success: false, error: "Task not found" };
-      const c = store.addAcceptanceCriterion(task.task_number, args.criterion);
+      const c = await store.addAcceptanceCriterion(task.task_number, args.criterion);
       broadcastToClients({ type: 'tasks_updated' });
       return { success: true, data: c };
     }
