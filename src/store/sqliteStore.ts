@@ -9,6 +9,37 @@ import type { Task, TaskLog, TaskCriterion, TaskWithEmbeds, TaskStatus, Spec, Sp
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Finds the project root by walking up from the current working directory,
+ * looking for .git or package.json markers. This ensures deterministic database
+ * placement regardless of how npx resolves paths.
+ */
+function findProjectRoot(): string {
+  let currentDir = process.cwd();
+  const maxDepth = 20; // Prevent infinite loops
+  let depth = 0;
+
+  while (depth < maxDepth) {
+    // Check for .git directory or file
+    if (
+      fs.existsSync(path.join(currentDir, '.git')) ||
+      fs.existsSync(path.join(currentDir, 'package.json'))
+    ) {
+      return currentDir;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    // Stop if we've reached the filesystem root
+    if (parentDir === currentDir) break;
+    
+    currentDir = parentDir;
+    depth++;
+  }
+
+  // Fallback to cwd if no project root found
+  return process.cwd();
+}
+
 type SqlJsModule = {
   Database: new (data?: ArrayBuffer) => { exec(sql: string): any[]; export(): Uint8Array; close(): void; prepare(sql: string): { bind(params: any[]): void; step(): boolean; get(): any[]; getColumn(index: number): any; free(): void } };
 };
@@ -19,7 +50,11 @@ export class SqliteStore {
   private initPromise: Promise<void> | null = null;
 
   constructor(workspacePath?: string) {
-    const basePath = workspacePath || process.env.WORKSPACE_PATH || process.cwd();
+    // Priority order for database location:
+    // 1. Explicit workspacePath parameter
+    // 2. WORKSPACE_PATH environment variable (highest priority override)
+    // 3. Project root (deterministic, regardless of npx path resolution)
+    const basePath = workspacePath || process.env.WORKSPACE_PATH || findProjectRoot();
     this.dbPath = path.join(basePath, 'sdd.db');
 
     try {
@@ -29,12 +64,10 @@ export class SqliteStore {
 
     // Initialize sql.js asynchronously
     this.initPromise = (async () => {
-      const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);
-      const SQLModule = await initSqlJsFunc({
+      const initSqlJsFunc = await eval('import("sql.js")').then((m: any) => m.default);      const SQLModule = await initSqlJsFunc({
         locateFile: (file: string) => {
-          // Resolve WASM file relative to this module's location
-          // Works both in development and when installed globally
-          return path.join(__dirname, '..', 'sql-wasm.wasm');
+          // Return absolute path to WASM file inside sql.js package
+          return path.join(__dirname, '../../node_modules/sql.js/dist/', file);
         }
       }) as SqlJsModule;
       this.db = new SQLModule.Database();
@@ -328,6 +361,7 @@ export class SqliteStore {
        VALUES (?, ?, ?, 'draft', ?, ?, ?, ?)`,
       [id, title, description || null, priority, estimated_hours ?? null, now, now]
     );
+    this.save();
     return this.getSpecByUUID(id)!;
   }
 
@@ -374,10 +408,10 @@ export class SqliteStore {
     if (updates.estimated_hours !== undefined) add('estimated_hours', updates.estimated_hours ?? null);
 
     if (fields.length === 0) return this.getSpecByNumber(specNumber) ?? null;
-
     add('updated_at', this.now());
     values.push(specNumber);
     this.execStatement(`UPDATE specs SET ${fields.join(', ')} WHERE spec_number = ?`, values);
+    this.save();
     return this.getSpecByNumber(specNumber)!;
   }
 
@@ -396,13 +430,12 @@ export class SqliteStore {
     const planRows = this.execQuery('SELECT plan_number FROM plans WHERE spec_number = ?', [specNumber]);
     const planNumbers = planRows.map((r: any) => r[0]);
 
-    for (const pn of planNumbers) {
-      // Delete tasks linked to this plan (logs + criteria cascade via FK)
+    for (const pn of planNumbers) {      // Delete tasks linked to this plan (logs + criteria cascade via FK)
       this.execStatement('DELETE FROM tasks WHERE plan_number = ?', [pn]);
     }
-
     // Now delete the spec — plans cascade via FK
     this.execStatement('DELETE FROM specs WHERE spec_number = ?', [specNumber]);
+    this.save();
 
     return true;
   }
@@ -434,9 +467,7 @@ export class SqliteStore {
 
   createPlan(spec_number: number, title: string, description?: string, sort_order?: number, estimated_hours?: number): Plan {
     const id  = uuidv4();
-    const now = this.now();
-
-    const maxOrderResult = this.execQuery(
+    const now = this.now();    const maxOrderResult = this.execQuery(
       'SELECT MAX(sort_order) as m FROM plans WHERE spec_number = ?', [spec_number]
     );
     const maxOrder = sort_order ?? ((maxOrderResult[0]?.[0] ?? -1) + 1);
@@ -446,6 +477,7 @@ export class SqliteStore {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, spec_number, title, description || null, maxOrder, estimated_hours ?? null, now, now]
     );
+    this.save();
 
     return this.getPlanByUUID(id)!;
   }
@@ -501,10 +533,10 @@ export class SqliteStore {
     if (updates.estimated_hours !== undefined) add('estimated_hours', updates.estimated_hours ?? null);
 
     if (fields.length === 0) return this.getPlanByNumber(planNumber) ?? null;
-
     add('updated_at', this.now());
     values.push(planNumber);
     this.execStatement(`UPDATE plans SET ${fields.join(', ')} WHERE plan_number = ?`, values);
+    this.save();
     return this.getPlanByNumber(planNumber)!;
   }
 
@@ -512,12 +544,12 @@ export class SqliteStore {
     let planNumber: number | undefined;
     if (typeof idOrNumber === 'number') {
       planNumber = idOrNumber;
-    } else {
-      const rows = this.execQuery('SELECT plan_number FROM plans WHERE id = ?', [idOrNumber]);
+    } else {      const rows = this.execQuery('SELECT plan_number FROM plans WHERE id = ?', [idOrNumber]);
       planNumber = rows.length > 0 ? rows[0][0] : undefined;
     }
     if (!planNumber) return false;
     this.execStatement('DELETE FROM plans WHERE plan_number = ?', [planNumber]);
+    this.save();
     return true;
   }
 
@@ -550,9 +582,7 @@ export class SqliteStore {
     plan_number?: number
   ): Task {
     const id  = uuidv4();
-    const now = this.now();
-
-    const dependsOnNumber = depends_on != null ? this.resolveTaskNumber(depends_on) ?? null : null;
+    const now = this.now();    const dependsOnNumber = depends_on != null ? this.resolveTaskNumber(depends_on) ?? null : null;
     const maxOrderResult = this.execQuery('SELECT MAX(sort_order) as m FROM tasks');
     const maxOrder = (maxOrderResult[0]?.[0] ?? -1);
 
@@ -561,6 +591,7 @@ export class SqliteStore {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, plan_number ?? null, title, description || null, status, dependsOnNumber, inputs || null, expected_outputs || null, maxOrder + 1, now, now]
     );
+    this.save();
 
     return this.getTaskByUUID(id)!;
   }
@@ -651,22 +682,20 @@ export class SqliteStore {
     }
 
     if (fields.length === 0) return this.getTaskByNumber(taskNumber) ?? null;
-
     add('updated_at', this.now());
     values.push(taskNumber);
     this.execStatement(`UPDATE tasks SET ${fields.join(', ')} WHERE task_number = ?`, values);
+    this.save();
 
     return this.getTaskByNumber(taskNumber)!;
-  }
-
-  updateTaskStatus(id: string, status: TaskStatus): Task | null {
+  }  updateTaskStatus(id: string, status: TaskStatus): Task | null {
     return this.updateTask(id, { status });
   }
 
   deleteTask(idOrNumber: string | number): boolean {
     const taskNumber = this.resolveTaskNumber(idOrNumber);
-    if (!taskNumber) return false;
-    this.execStatement('DELETE FROM tasks WHERE task_number = ?', [taskNumber]);
+    if (!taskNumber) return false;    this.execStatement('DELETE FROM tasks WHERE task_number = ?', [taskNumber]);
+    this.save();
     return true;
   }
 
@@ -674,6 +703,7 @@ export class SqliteStore {
     for (let i = 0; i < taskNumbers.length; i++) {
       this.execStatement('UPDATE tasks SET sort_order = ? WHERE task_number = ?', [i, taskNumbers[i]]);
     }
+    this.save();
   }
 
   // ── Log operations ───────────────────────────────────────────────────────────
@@ -688,15 +718,16 @@ export class SqliteStore {
       'INSERT INTO logs (id, task_number, message, created_by, created_at) VALUES (?, ?, ?, ?, ?)',
       [id, taskNumber, message, createdBy, now]
     );
+    this.save();
 
     return { id, task_number: taskNumber, message, created_by: createdBy as any, created_at: now };
   }
 
-  getLogs(taskNumber?: number): TaskLog[] {
-    if (taskNumber !== undefined) {
+  getLogs(taskNumber?: number): TaskLog[] {    if (taskNumber !== undefined) {
       const rows = this.execQuery('SELECT * FROM logs WHERE task_number = ? ORDER BY created_at ASC', [taskNumber]);
       return rows.map(r => this.rowToLog(r));
     }
+
     const rows = this.execQuery('SELECT * FROM logs ORDER BY created_at ASC');
     return rows.map(r => this.rowToLog(r));
   }
@@ -712,11 +743,13 @@ export class SqliteStore {
     if (taskIdOrNumber === undefined) {
       this.execStatement('DELETE FROM logs');
       // sql.js doesn't provide changes() easily, so we return -1 to indicate all cleared
+      this.save();
       return -1;
     }
     const taskNumber = this.resolveTaskNumber(taskIdOrNumber);
     if (!taskNumber) return 0;
     this.execStatement('DELETE FROM logs WHERE task_number = ?', [taskNumber]);
+    this.save();
     return -1;
   }
 
@@ -731,6 +764,7 @@ export class SqliteStore {
       'INSERT INTO criteria (task_number, criterion, created_at) VALUES (?, ?, ?)',
       [taskNumber, criterion, now]
     );
+    this.save();
 
     // Get the last inserted row id
     const rows = this.execQuery('SELECT * FROM criteria WHERE task_number = ? ORDER BY id DESC LIMIT 1', [taskNumber]);
@@ -743,8 +777,7 @@ export class SqliteStore {
     if (taskNumber !== undefined) {
       const rows = this.execQuery('SELECT * FROM criteria WHERE task_number = ? ORDER BY id ASC', [taskNumber]);
       return rows.map(r => this.rowToCriterion(r));
-    }
-    const rows = this.execQuery('SELECT * FROM criteria ORDER BY id ASC');
+    }    const rows = this.execQuery('SELECT * FROM criteria ORDER BY id ASC');
     return rows.map(r => this.rowToCriterion(r));
   }
 
@@ -760,6 +793,7 @@ export class SqliteStore {
       'UPDATE criteria SET passed = ?, note = ? WHERE id = ?',
       [passed ? 1 : 0, note || null, criterionId]
     );
+    this.save();
     const rows = this.execQuery('SELECT * FROM criteria WHERE id = ?', [criterionId]);
     return rows.length > 0 ? this.rowToCriterion(rows[0]) : null;
   }

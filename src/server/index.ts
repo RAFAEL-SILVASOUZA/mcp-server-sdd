@@ -440,10 +440,68 @@ export async function startDashboardServer(customPort?: number): Promise<{ port:
 }
 
 export function stopDashboardServer(): void {
-  if (!serverState) return;
+  if (!serverState) {
+    console.log('[SDD] Dashboard server already stopped');
+    return;
+  }
+
+  const port = serverState.port;
+  console.log(`[SDD] Stopping dashboard server on port ${port}...`);
+
+  // Close all WebSocket connections
   serverState.clients.forEach(c => c.close());
+
+  // Close WebSocket server
   serverState.wsServer.close();
-  serverState.httpServer.close(() => { serverState = null; });
+
+  // Close HTTP server with timeout fallback
+  let closed = false;
+  const closeCallback = () => {
+    if (!closed) {
+      closed = true;
+      console.log(`[SDD] Dashboard server stopped on port ${port}`);
+      serverState = null;
+    }
+  };
+
+  // Set timeout fallback for force cleanup
+  const timeoutMs = 5000;
+  const timeoutId = setTimeout(() => {
+    if (!closed) {
+      console.warn(`[SDD] Server close timed out after ${timeoutMs}ms, forcing reset`);
+      resetServerState();
+    }
+  }, timeoutMs);
+
+  serverState.httpServer.close(closeCallback);
+}
+
+/**
+ * Forcefully resets the server state.
+ * Use this when normal shutdown fails or for immediate cleanup during restarts.
+ */
+export function resetServerState(): void {
+  if (!serverState) {
+    console.log('[SDD] Server state already cleared');
+    return;
+  }
+
+  const port = serverState.port;
+  console.warn(`[SDD] Force resetting server state on port ${port}`);
+
+  // Close all WebSocket connections forcefully
+  serverState.clients.forEach(c => {
+    try { c.terminate(); } catch {}
+  });
+  serverState.clients.clear();
+
+  // Close servers without waiting for callbacks
+  try { serverState.wsServer.close(); } catch {}
+  try { serverState.httpServer.close(); } catch {}
+
+  // Immediately clear state
+  serverState = null;
+  console.log(`[SDD] Server state forcefully reset on port ${port}`);
 }
 
 export function isServerRunning(): boolean { return serverState !== null; }
@@ -453,3 +511,4 @@ export function getServerPort(): number | null { return serverState?.port ?? nul
 export function broadcastToClients(message: unknown): void {
   serverState?.broadcast(message);
 }
+
