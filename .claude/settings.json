@@ -140,6 +140,7 @@
     "node -e \"const { store } = require('./dist/store/sqliteStore.js'); (async () => { await store.ensureReady(); console.log('Specs:', await store.listSpecs()); })();\"",
     "node -e \"const { store } = require('./dist/store/sqliteStore.js'); (async () => { await store.ensureReady(); const s = await store.createSpec('Teste Persistencia', 'Descricao teste'); console.log('Criada:', s); await store.save(); })();\"",
     "node -e \"const { store } = require('./dist/store/sqliteStore.js'); (async () => { await store.ensureReady(); console.log('Specs apos reload:', await store.listSpecs()); })();\"",
-    "dir /s *.html 2>nul"
+    "dir /s *.html 2>nul",
+    "npm uninstall -g @rafaelsouza-ai/mcp-server-sdd"
   ]
 }
